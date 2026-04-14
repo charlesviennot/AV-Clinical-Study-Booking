@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth';
 import { collection, query, where, getDocs, addDoc, updateDoc, doc, deleteDoc, getDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../lib/firebase';
-import { CalendarDays, Clock, ChevronRight, User, Mail, Phone, Info, Loader2, LogOut, Edit, Trash2, CheckCircle2, MapPin, AlertTriangle, ChevronDown, Sparkles, X } from 'lucide-react';
+import { CalendarDays, Clock, ChevronRight, User, Mail, Phone, Info, Loader2, LogOut, Edit, Trash2, CheckCircle2, MapPin, AlertTriangle, ChevronDown, Sparkles, X, ExternalLink } from 'lucide-react';
 import { cn, DEFAULT_TIMESLOTS } from '../lib/utils';
 import { Link } from 'react-router-dom';
 
@@ -56,21 +56,74 @@ export default function UserPortal() {
             </div>
             <h2 className="text-2xl font-semibold tracking-tight">À propos de l'étude</h2>
           </div>
-          <div className="space-y-4 text-[#1d1d1f] leading-relaxed text-lg">
-            <p>
-              Nous recherchons des volontaires pour participer à une étude sur l'optimisation de la récupération physique grâce à une technologie innovante : la <strong className="font-semibold text-[#0071e3]">Stimulation Vibroacoustique</strong>.
-            </p>
-            <p>
-              Concrètement, vous serez installé sur un équipement diffusant des ondes sonores à très basse fréquence qui se propagent naturellement dans l'eau de votre corps pour créer un doux micro-massage cellulaire de l'intérieur, sans secousse mécanique. L'objectif est d'observer comment ces ondes aident le système nerveux à basculer en mode "récupération profonde" lors de séances 100 % passives et relaxantes.
-            </p>
-            <p>
-              Il vous suffira de vous engager sur 3 courtes séances au laboratoire sur une semaine (parcours Lundi/Mercredi/Jeudi ou Mardi/Jeudi/Vendredi, avec horaires flexibles).
-            </p>
-            <div className="bg-[#f5f9ff] p-5 rounded-2xl border border-[#0071e3]/20 mt-6">
-              <p className="font-medium">
-                Enfin, pour les besoins de la recherche, certains participants seront assignés au hasard à un "groupe contrôle". Mais rassurez-vous : si c'est votre cas, une véritable séance complète de thérapie "Audiovitality" (d'une valeur habituelle de 250 €) vous sera intégralement offerte lors de votre dernier jour ! Vous avez ainsi la certitude de contribuer à la science sportive tout en profitant d'une technologie de pointe exceptionnelle pour votre propre bien-être.
+          <div className="space-y-8 text-[#1d1d1f] leading-relaxed text-lg">
+            
+            <div>
+              <h3 className="text-xl font-semibold mb-3 text-[#0071e3] flex items-center gap-2">
+                <span>🔬</span> Participez à notre étude : Accélérer la récupération musculaire par les ondes sonores
+              </h3>
+            </div>
+
+            <div>
+              <h4 className="font-semibold text-lg mb-2 flex items-center gap-2"><span>🎯</span> Quel est le but de l'étude ?</h4>
+              <p className="text-[#86868b]">
+                Nous cherchons à mesurer si l'application d'une thérapie par sons à basses fréquences permet de réduire plus rapidement l'inflammation (œdème) et les douleurs musculaires (courbatures) par rapport à un repos classique.
               </p>
             </div>
+
+            <div>
+              <h4 className="font-semibold text-lg mb-4 flex items-center gap-2"><span>⏳</span> Votre engagement : 3h30 au total réparties sur une semaine</h4>
+              <p className="mb-4 text-[#86868b]">L'étude est rapide et nécessite seulement 3 courtes visites dans nos locaux. Voici le déroulement exact :</p>
+              <ul className="space-y-3">
+                <li className="bg-[#f5f5f7] p-4 rounded-xl border border-[#d2d2d7]/30">
+                  <strong className="font-semibold text-[#1d1d1f]">Visite 1 (Jour 0) - Le défi physique :</strong> Après un bilan de base, vous effectuerez 100 sauts (Drop Jumps) depuis une boîte de 60 cm. L'objectif est de générer des courbatures standardisées pour que nous puissions évaluer la qualité de votre récupération.
+                </li>
+                <li className="bg-[#f5f5f7] p-4 rounded-xl border border-[#d2d2d7]/30">
+                  <strong className="font-semibold text-[#1d1d1f]">Jour 1 (À distance) - Suivi express :</strong> Pas besoin de vous déplacer. Vous répondrez simplement à une question rapide (1 minute) sur votre smartphone pour évaluer votre niveau de douleur.
+                </li>
+                <li className="bg-[#f5f5f7] p-4 rounded-xl border border-[#d2d2d7]/30">
+                  <strong className="font-semibold text-[#1d1d1f]">Visite 2 (Jour 2 - 48h après les sauts) - Le Soin :</strong> Vous serez installé en position allongée pendant 40 minutes. Un tirage au sort déterminera si vous recevez la thérapie sonore innovante (AudioVitality) ou une période de repos classique.
+                </li>
+                <li className="bg-[#f5f5f7] p-4 rounded-xl border border-[#d2d2d7]/30">
+                  <strong className="font-semibold text-[#1d1d1f]">Visite 3 (Jour 3 - 72h après les sauts) - Bilan final :</strong> Une dernière visite pour mesurer votre récupération globale.
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="font-semibold text-lg mb-2 flex items-center gap-2"><span>⚙️</span> Comment évaluons-nous votre récupération ?</h4>
+              <p className="text-[#86868b]">
+                Lors de vos visites au laboratoire, nous mesurerons votre force de saut, votre souplesse, ainsi que l'hydratation et l'oxygénation de vos muscles grâce à des capteurs posés sur la peau (Bio-impédance et NIRS). Rassurez-vous : toutes ces mesures sont 100 % indolores et non-invasives.
+              </p>
+            </div>
+
+            <div className="bg-[#f5f9ff] p-6 md:p-8 rounded-3xl border border-[#0071e3]/20">
+              <h4 className="font-semibold text-xl mb-6 text-[#0071e3] flex items-center gap-2"><span>⚖️</span> Risques et Bénéfices</h4>
+              <div className="space-y-6">
+                <div>
+                  <p className="font-semibold text-[#1d1d1f] mb-1">L'effort demandé :</p>
+                  <p className="text-[#86868b]">Le protocole de sauts provoquera des courbatures musculaires d'intensité modérée à forte pendant 48h à 72h. C'est exactement ce que nous recherchons, c'est une réaction physiologique normale et totalement sans danger !</p>
+                </div>
+                <div className="h-px w-full bg-[#0071e3]/10"></div>
+                <div>
+                  <p className="font-semibold text-[#1d1d1f] mb-1 flex items-center gap-2">Votre récompense exceptionnelle <span>🎁</span> :</p>
+                  <p className="text-[#86868b]">En plus de contribuer à l'avancement de la science du sport, chaque participant se verra offrir une véritable séance complète de récupération AudioVitality. Pour information, une seule séance de cette technologie de pointe coûte de base 250 € ! Si le tirage au sort vous place dans le groupe "repos classique" lors de la Visite 2, cette séance premium vous sera tout de même offerte ultérieurement en guise de grand remerciement pour votre implication.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-4 flex justify-center">
+              <a 
+                href="https://www.audiovitality.com/ch-fr/sport/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-[#1d1d1f] text-white rounded-full font-medium hover:bg-black transition-colors"
+              >
+                Découvrir la technologie AudioVitality
+                <ExternalLink className="w-4 h-4" />
+              </a>
+            </div>
+
           </div>
         </div>
       </div>
@@ -270,19 +323,19 @@ export default function UserPortal() {
       <div className="min-h-screen bg-[#f5f5f7] text-[#1d1d1f] flex items-center justify-center p-4 font-sans">
         <StudyInfoModal />
         <div className="max-w-md w-full bg-white rounded-[2rem] p-10 text-center shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-          <img src="/images/AVI_Logo_Black.png" alt="AudioVitality" className="h-8 mx-auto mb-8" />
-          <h1 className="text-3xl font-semibold tracking-tight mb-4 flex items-center justify-center gap-3">
+          <a href="https://www.audiovitality.com/ch-fr/sport/" target="_blank" rel="noopener noreferrer" className="block mb-8 hover:opacity-80 transition-opacity">
+            <img src="/images/AVI_Logo_Black.png" alt="AudioVitality" className="h-8 mx-auto" />
+          </a>
+          <h1 className="text-3xl font-semibold tracking-tight mb-4">
             Étude Clinique
-            <button onClick={() => setShowStudyInfo(true)} className="relative group" title="En savoir plus sur l'étude">
-              <span className="absolute inset-0 rounded-full bg-[#0071e3] animate-ping opacity-20 group-hover:opacity-40"></span>
-              <div className="relative bg-[#f5f9ff] text-[#0071e3] p-2 rounded-full border border-[#0071e3]/20 shadow-sm">
-                <Sparkles className="w-5 h-5" />
-              </div>
-            </button>
           </h1>
-          <p className="text-[#86868b] mb-8 text-lg leading-relaxed">
+          <p className="text-[#86868b] mb-6 text-lg leading-relaxed">
             Connectez-vous avec votre compte Google pour réserver ou gérer vos séances.
           </p>
+          <button onClick={() => setShowStudyInfo(true)} className="mb-8 inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#f5f9ff] text-[#0071e3] rounded-full font-medium hover:bg-[#e8f2ff] transition-colors border border-[#0071e3]/20 shadow-sm w-full">
+            <Sparkles className="w-5 h-5" />
+            Découvrir les détails de l'étude
+          </button>
           <button 
             onClick={handleLogin}
             className="w-full flex items-center justify-center gap-3 py-4 bg-white border border-[#d2d2d7] text-[#1d1d1f] rounded-full font-medium text-lg hover:bg-[#f5f5f7] transition-colors shadow-sm"
@@ -308,7 +361,9 @@ export default function UserPortal() {
         <header className="bg-white/70 backdrop-blur-md sticky top-0 z-50 border-b border-[#d2d2d7]/50">
           <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
             <div className="flex items-center gap-6">
-              <img src="/images/AVI_Logo_Black.png" alt="AudioVitality" className="h-6 md:h-8 object-contain" />
+              <a href="https://www.audiovitality.com/ch-fr/sport/" target="_blank" rel="noopener noreferrer" className="hover:opacity-80 transition-opacity">
+                <img src="/images/AVI_Logo_Black.png" alt="AudioVitality" className="h-6 md:h-8 object-contain" />
+              </a>
               <div className="hidden sm:flex items-center gap-1 bg-[#f5f5f7] p-1 rounded-full">
                 <span className="px-4 py-1.5 bg-white text-[#1d1d1f] rounded-full text-sm font-medium shadow-sm">Mon Espace</span>
                 <Link to="/admin" className="px-4 py-1.5 text-[#86868b] hover:text-[#1d1d1f] rounded-full text-sm font-medium transition-colors">Administration</Link>
@@ -329,16 +384,14 @@ export default function UserPortal() {
         <main className="max-w-3xl mx-auto px-4 py-10 md:py-16">
           <div className="text-center mb-10">
             <CheckCircle2 className="w-16 h-16 text-[#34c759] mx-auto mb-4" />
-            <h1 className="text-3xl font-semibold tracking-tight mb-2 flex items-center justify-center gap-3">
+            <h1 className="text-3xl font-semibold tracking-tight mb-2">
               Réservation confirmée
-              <button onClick={() => setShowStudyInfo(true)} className="relative group" title="En savoir plus sur l'étude">
-                <span className="absolute inset-0 rounded-full bg-[#0071e3] animate-ping opacity-20 group-hover:opacity-40"></span>
-                <div className="relative bg-[#f5f9ff] text-[#0071e3] p-2 rounded-full border border-[#0071e3]/20 shadow-sm">
-                  <Sparkles className="w-5 h-5" />
-                </div>
-              </button>
             </h1>
-            <p className="text-[#86868b]">Vos séances pour l'étude clinique sont programmées.</p>
+            <p className="text-[#86868b] mb-6">Vos séances pour l'étude clinique sont programmées.</p>
+            <button onClick={() => setShowStudyInfo(true)} className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#f5f9ff] text-[#0071e3] rounded-full font-medium hover:bg-[#e8f2ff] transition-colors border border-[#0071e3]/20 shadow-sm">
+              <Sparkles className="w-5 h-5" />
+              Rappels sur l'étude
+            </button>
           </div>
 
           <div className="bg-white rounded-[2rem] p-8 shadow-[0_4px_24px_rgba(0,0,0,0.04)] border border-[#d2d2d7]/30 mb-8">
@@ -403,7 +456,9 @@ export default function UserPortal() {
       <header className="bg-white/70 backdrop-blur-md sticky top-0 z-50 border-b border-[#d2d2d7]/50">
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-6">
-            <img src="/images/AVI_Logo_Black.png" alt="AudioVitality" className="h-6 md:h-8 object-contain" />
+            <a href="https://www.audiovitality.com/ch-fr/sport/" target="_blank" rel="noopener noreferrer" className="hover:opacity-80 transition-opacity">
+              <img src="/images/AVI_Logo_Black.png" alt="AudioVitality" className="h-6 md:h-8 object-contain" />
+            </a>
             <div className="hidden sm:flex items-center gap-1 bg-[#f5f5f7] p-1 rounded-full">
               <span className="px-4 py-1.5 bg-white text-[#1d1d1f] rounded-full text-sm font-medium shadow-sm">Mon Espace</span>
               <Link to="/admin" className="px-4 py-1.5 text-[#86868b] hover:text-[#1d1d1f] rounded-full text-sm font-medium transition-colors">Administration</Link>
@@ -442,16 +497,14 @@ export default function UserPortal() {
         )}
 
         <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-semibold tracking-tight mb-4 flex items-center justify-center gap-4 flex-wrap">
+          <h1 className="text-4xl md:text-5xl font-semibold tracking-tight mb-4">
             {isEditing ? "Modifiez vos séances." : "Réservez vos séances."}
-            <button onClick={() => setShowStudyInfo(true)} className="relative group" title="En savoir plus sur l'étude">
-              <span className="absolute inset-0 rounded-full bg-[#0071e3] animate-ping opacity-20 group-hover:opacity-40"></span>
-              <div className="relative bg-[#f5f9ff] text-[#0071e3] p-2.5 rounded-full border border-[#0071e3]/20 shadow-sm">
-                <Sparkles className="w-6 h-6 md:w-7 md:h-7" />
-              </div>
-            </button>
           </h1>
-          <p className="text-xl text-[#86868b]">Programmez vos 3 sessions obligatoires en quelques étapes.</p>
+          <p className="text-xl text-[#86868b] mb-6">Programmez vos 3 sessions obligatoires en quelques étapes.</p>
+          <button onClick={() => setShowStudyInfo(true)} className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#f5f9ff] text-[#0071e3] rounded-full font-medium hover:bg-[#e8f2ff] transition-colors border border-[#0071e3]/20 shadow-sm">
+            <Sparkles className="w-5 h-5" />
+            Découvrir les détails de l'étude
+          </button>
         </div>
 
         <div className="bg-white rounded-[2rem] p-8 md:p-10 mb-16 shadow-[0_4px_24px_rgba(0,0,0,0.04)] border border-[#d2d2d7]/30">
