@@ -13,23 +13,27 @@ export const DEFAULT_TIMESLOTS = [
   '16h00 - 17h30'
 ];
 
-export const getUpcomingWeeks = (count = 4) => {
-  const weeks = [];
-  const today = new Date();
-  const nextMonday = new Date(today);
-  nextMonday.setDate(today.getDate() + ((1 + 7 - today.getDay()) % 7 || 7));
-  nextMonday.setHours(0, 0, 0, 0);
+export const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'];
+
+export const generateWeekData = (date: Date) => {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(d.setDate(diff));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+
+  const getWeekNumber = (d: Date) => {
+    const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
+    const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+    return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  };
+
+  const weekId = `${monday.getFullYear()}-W${getWeekNumber(monday).toString().padStart(2, '0')}`;
   
-  for (let i = 0; i < count; i++) {
-    const start = new Date(nextMonday);
-    start.setDate(nextMonday.getDate() + (i * 7));
-    const end = new Date(start);
-    end.setDate(start.getDate() + 4);
-    
-    const startStr = start.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-    const endStr = end.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-    const id = start.toISOString().split('T')[0];
-    weeks.push({ id, label: `Semaine du ${startStr} au ${endStr}` });
-  }
-  return weeks;
+  const months = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+  const label = `Semaine du ${monday.getDate()} ${months[monday.getMonth()]} au ${sunday.getDate()} ${months[sunday.getMonth()]}`;
+
+  return { id: weekId, label, startDate: monday.getTime() };
 };

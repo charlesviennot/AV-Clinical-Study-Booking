@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth';
 import { collection, query, where, getDocs, addDoc, updateDoc, doc, deleteDoc, getDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../lib/firebase';
-import { CalendarDays, Clock, ChevronRight, User, Mail, Phone, Info, Loader2, LogOut, Edit, Trash2, CheckCircle2 } from 'lucide-react';
-import { cn, getUpcomingWeeks, DEFAULT_TIMESLOTS } from '../lib/utils';
+import { CalendarDays, Clock, ChevronRight, User, Mail, Phone, Info, Loader2, LogOut, Edit, Trash2, CheckCircle2, MapPin, AlertTriangle, ChevronDown } from 'lucide-react';
+import { cn, DEFAULT_TIMESLOTS } from '../lib/utils';
 import { Link } from 'react-router-dom';
 
 type GroupType = 'LUNDI' | 'MARDI' | null;
@@ -21,8 +21,6 @@ const GROUPS = {
   }
 };
 
-const WEEKS = getUpcomingWeeks(4);
-
 export default function UserPortal() {
   const [user, setUser] = useState<any>(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
@@ -34,11 +32,11 @@ export default function UserPortal() {
   const [selectedWeek, setSelectedWeek] = useState<string>('');
   const [selectedGroup, setSelectedGroup] = useState<GroupType>(null);
   const [selectedSlots, setSelectedSlots] = useState<Record<string, string>>({});
-  const [userInfo, setUserInfo] = useState({ name: '', email: '', phone: '' });
+  const [userInfo, setUserInfo] = useState({ name: '', email: '', phonePrefix: '+41', phone: '' });
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [existingBookings, setExistingBookings] = useState<any[]>([]);
-  const [availableSlots, setAvailableSlots] = useState<string[]>(DEFAULT_TIMESLOTS);
+  const [studyWeeks, setStudyWeeks] = useState<any[]>([]);
 
   // Auth Listener
   useEffect(() => {
@@ -72,25 +70,20 @@ export default function UserPortal() {
     fetchAllBookings();
   }, [user, isSubmitting]);
 
-  // Fetch specific week config for slots
+  // Fetch weeks
   useEffect(() => {
-    const fetchSlotsForWeek = async () => {
-      if (!selectedWeek) return;
+    const fetchWeeks = async () => {
       try {
-        const docRef = doc(db, 'weekConfigs', selectedWeek);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists() && docSnap.data().slots) {
-          setAvailableSlots(docSnap.data().slots);
-        } else {
-          setAvailableSlots(DEFAULT_TIMESLOTS);
-        }
+        const snapshot = await getDocs(collection(db, 'studyWeeks'));
+        const weeks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        weeks.sort((a: any, b: any) => a.startDate - b.startDate);
+        setStudyWeeks(weeks);
       } catch (error) {
-        console.error("Error fetching week config:", error);
-        setAvailableSlots(DEFAULT_TIMESLOTS);
+        console.error("Error fetching weeks:", error);
       }
     };
-    fetchSlotsForWeek();
-  }, [selectedWeek]);
+    fetchWeeks();
+  }, []);
 
   const fetchUserBooking = async (uid: string) => {
     setLoadingBooking(true);
@@ -107,7 +100,21 @@ export default function UserPortal() {
         setSelectedGroup(data.group as GroupType);
         setSelectedSlots(data.slots || {});
         if (data.userInfo) {
-          setUserInfo(data.userInfo);
+          let prefix = '+41';
+          let phoneStr = data.userInfo.phone || '';
+          if (phoneStr.startsWith('+33')) {
+            prefix = '+33';
+            phoneStr = phoneStr.substring(3).trim();
+          } else if (phoneStr.startsWith('+41')) {
+            prefix = '+41';
+            phoneStr = phoneStr.substring(3).trim();
+          }
+          setUserInfo({
+            name: data.userInfo.name || '',
+            email: data.userInfo.email || '',
+            phonePrefix: prefix,
+            phone: phoneStr
+          });
         }
       } else {
         setUserBooking(null);
@@ -158,12 +165,17 @@ export default function UserPortal() {
     
     setIsSubmitting(true);
     try {
+      const finalPhone = `${userInfo.phonePrefix} ${userInfo.phone}`;
       const bookingData = {
         userId: user.uid,
         week: selectedWeek,
         group: selectedGroup,
         slots: selectedSlots,
-        userInfo,
+        userInfo: {
+          name: userInfo.name,
+          email: userInfo.email,
+          phone: finalPhone
+        },
         updatedAt: Date.now(),
       };
 
@@ -288,7 +300,7 @@ export default function UserPortal() {
               <div className="bg-[#f5f5f7] rounded-2xl p-6">
                 <div className="flex items-center gap-2 text-[#1d1d1f] font-medium mb-4">
                   <CalendarDays className="w-5 h-5 text-[#0071e3]" />
-                  {WEEKS.find(w => w.id === userBooking.week)?.label || `Semaine du ${userBooking.week}`} - Groupe {userBooking.group}
+                  {studyWeeks.find(w => w.id === userBooking.week)?.label || `Semaine du ${userBooking.week}`} - Groupe {userBooking.group}
                 </div>
                 
                 <div className="space-y-3">
@@ -379,43 +391,52 @@ export default function UserPortal() {
         </div>
 
         <div className="bg-white rounded-[2rem] p-8 md:p-10 mb-16 shadow-[0_4px_24px_rgba(0,0,0,0.04)] border border-[#d2d2d7]/30">
-          <div className="flex items-start gap-4 mb-8">
-            <div className="p-3 bg-[#f5f5f7] rounded-2xl text-[#1d1d1f]">
-              <Info className="w-6 h-6" />
+          <div className="flex flex-col gap-8">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-[#f5f9ff] text-[#0071e3] rounded-2xl">
+                <MapPin className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold mb-1">ADRESSE RDV</h2>
+                <p className="text-[#1d1d1f] font-medium text-lg">Rue de Genève 7, 1003 Lausanne</p>
+              </div>
             </div>
+
+            <div className="h-px w-full bg-[#f5f5f7]"></div>
+
             <div>
-              <h2 className="text-2xl font-semibold mb-2 tracking-tight">Instructions de réservation</h2>
-              <p className="text-[#86868b] text-lg leading-relaxed">
-                Pour le bon déroulement de l'étude, votre participation nécessite <strong className="text-[#1d1d1f] font-semibold">3 sessions obligatoires</strong> au laboratoire réparties sur une même semaine.
-              </p>
-            </div>
-          </div>
+              <h3 className="text-2xl font-semibold mb-6 tracking-tight">Bonjour et merci de votre participation à notre étude clinique sur la récupération sportive !</h3>
+              
+              <div className="space-y-6 text-[#1d1d1f] leading-relaxed text-lg">
+                <p>
+                  <strong className="font-semibold text-[#0071e3]">Le Protocole :</strong> Nous évaluons l'impact de la stimulation vibro-acoustique basse fréquence (LFVSS) sur la récupération musculaire (DOMS).
+                </p>
 
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="bg-[#f5f5f7] p-6 rounded-3xl">
-              <div className="flex items-center gap-3 mb-4 text-[#1d1d1f] font-semibold text-lg">
-                <CalendarDays className="w-5 h-5 text-[#0071e3]" />
-                RÈGLE N°1 : Les Jours
-              </div>
-              <p className="text-[#86868b] mb-4">Choisissez un groupe et respectez la formule :</p>
-              <ul className="space-y-3">
-                <li className="flex items-start gap-3">
-                  <span className="text-[#0071e3] font-bold mt-0.5">•</span>
-                  <span><strong className="text-[#1d1d1f] font-semibold">GROUPE LUNDI :</strong><br/>Lundi + Mercredi + Jeudi</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="text-[#0071e3] font-bold mt-0.5">•</span>
-                  <span><strong className="text-[#1d1d1f] font-semibold">GROUPE MARDI :</strong><br/>Mardi + Jeudi + Vendredi</span>
-                </li>
-              </ul>
-            </div>
+                <div className="bg-[#f5f5f7] p-6 md:p-8 rounded-3xl">
+                  <p className="font-semibold mb-4 text-xl">Votre engagement (CALENDRIER STRICT) :</p>
+                  <p className="mb-6 text-[#86868b]">L'étude nécessite votre présence pour 3 sessions à des intervalles physiologiques stricts (J0, J+2 et J+3). Le déroulement de votre semaine dépendra de votre jour de départ :</p>
+                  <ul className="space-y-4">
+                    <li className="flex items-start gap-3 bg-white p-4 rounded-2xl border border-[#d2d2d7]/50 shadow-sm">
+                      <span className="text-[#0071e3] text-xl mt-0.5">👉</span>
+                      <span>Si vous choisissez le <strong className="font-semibold">LUNDI (J0)</strong> : Vos deux sessions de suivi auront obligatoirement lieu le <strong className="font-semibold">MERCREDI</strong> et le <strong className="font-semibold">JEUDI</strong>.</span>
+                    </li>
+                    <li className="flex items-start gap-3 bg-white p-4 rounded-2xl border border-[#d2d2d7]/50 shadow-sm">
+                      <span className="text-[#0071e3] text-xl mt-0.5">👉</span>
+                      <span>Si vous choisissez le <strong className="font-semibold">MARDI (J0)</strong> : Vos deux sessions de suivi auront obligatoirement lieu le <strong className="font-semibold">JEUDI</strong> et le <strong className="font-semibold">VENDREDI</strong>.<br/><span className="text-sm text-[#86868b] mt-1 block">(Merci de vous assurer d'être disponible sur ces 3 jours avant de valider vos horaires).</span></span>
+                    </li>
+                  </ul>
+                </div>
 
-            <div className="bg-[#f5f5f7] p-6 rounded-3xl">
-              <div className="flex items-center gap-3 mb-4 text-[#1d1d1f] font-semibold text-lg">
-                <Clock className="w-5 h-5 text-[#0071e3]" />
-                RÈGLE N°2 : Les Horaires
+                <div className="bg-[#fff0f0] p-6 md:p-8 rounded-3xl border border-[#ff3b30]/20">
+                  <p className="text-[#ff3b30] font-semibold mb-3 flex items-center gap-2 text-xl">
+                    <AlertTriangle className="w-6 h-6" />
+                    IMPORTANT POUR LE JOUR 0 (J0)
+                  </p>
+                  <p className="text-[#1d1d1f]">
+                    Vous allez réaliser un effort physique pour induire la fatigue musculaire. Merci de venir en tenue de sport (baskets, short/legging, t-shirt) pour cette première session. Les sessions suivantes (J+2 et J+3) seront des sessions de récupération passive et de mesures (pas d'effort).
+                  </p>
+                </div>
               </div>
-              <p className="text-[#86868b] mb-4">Choisissez librement parmi les horaires disponibles chaque jour.</p>
             </div>
           </div>
         </div>
@@ -427,7 +448,7 @@ export default function UserPortal() {
               <h3 className="text-2xl font-semibold tracking-tight">1. Choisissez votre semaine</h3>
             </div>
             <div className="grid sm:grid-cols-2 gap-4">
-              {WEEKS.map(week => {
+              {studyWeeks.map(week => {
                 const isSelected = selectedWeek === week.id;
                 return (
                   <button
@@ -494,44 +515,53 @@ export default function UserPortal() {
                 <p className="text-[#86868b] mt-2">Sélectionnez une heure pour chaque jour de votre groupe.</p>
               </div>
               <div className="bg-white border border-[#d2d2d7] rounded-[2rem] overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.02)]">
-                {GROUPS[selectedGroup].days.map((day, index) => (
-                  <div key={day} className={cn(
-                    "p-6 md:p-8",
-                    index !== GROUPS[selectedGroup].days.length - 1 && "border-b border-[#d2d2d7]"
-                  )}>
-                    <div className="flex flex-col md:flex-row md:items-center gap-6 md:gap-12">
-                      <div className="w-32 shrink-0">
-                        <div className="text-[#1d1d1f] font-semibold text-xl">{day}</div>
-                        <div className="text-sm text-[#86868b] mt-1">Séance {index + 1}</div>
-                      </div>
-                      <div className="flex flex-wrap gap-3 flex-1">
-                        {availableSlots.map(time => {
-                          const isSelected = selectedSlots[day] === time;
-                          const taken = isSlotTaken(day, time);
-                          
-                          return (
-                            <button
-                              key={time}
-                              type="button"
-                              disabled={taken && !isSelected}
-                              onClick={() => handleSlotSelect(day, time)}
-                              className={cn(
-                                "px-5 py-3 rounded-xl text-sm font-medium transition-all duration-200 border",
-                                isSelected
-                                  ? "bg-[#1d1d1f] text-white border-[#1d1d1f] shadow-md transform scale-105"
-                                  : taken
-                                    ? "bg-[#f5f5f7] text-[#d2d2d7] border-transparent cursor-not-allowed line-through"
-                                    : "bg-[#f5f5f7] text-[#1d1d1f] border-transparent hover:bg-[#e8e8ed]"
-                              )}
-                            >
-                              {time}
-                            </button>
-                          );
-                        })}
+                {GROUPS[selectedGroup].days.map((day, index) => {
+                  const currentWeekData = studyWeeks.find(w => w.id === selectedWeek);
+                  const availableSlotsForDay = currentWeekData?.slotsByDay?.[day] || [];
+
+                  return (
+                    <div key={day} className={cn(
+                      "p-6 md:p-8",
+                      index !== GROUPS[selectedGroup].days.length - 1 && "border-b border-[#d2d2d7]"
+                    )}>
+                      <div className="flex flex-col md:flex-row md:items-center gap-6 md:gap-12">
+                        <div className="w-32 shrink-0">
+                          <div className="text-[#1d1d1f] font-semibold text-xl">{day}</div>
+                          <div className="text-sm text-[#86868b] mt-1">Séance {index + 1}</div>
+                        </div>
+                        <div className="flex flex-wrap gap-3 flex-1">
+                          {availableSlotsForDay.length === 0 ? (
+                            <div className="text-[#86868b] text-sm italic">Aucun créneau disponible ce jour.</div>
+                          ) : (
+                            availableSlotsForDay.map((time: string) => {
+                              const isSelected = selectedSlots[day] === time;
+                              const taken = isSlotTaken(day, time);
+                              
+                              return (
+                                <button
+                                  key={time}
+                                  type="button"
+                                  disabled={taken && !isSelected}
+                                  onClick={() => handleSlotSelect(day, time)}
+                                  className={cn(
+                                    "px-5 py-3 rounded-xl text-sm font-medium transition-all duration-200 border",
+                                    isSelected
+                                      ? "bg-[#1d1d1f] text-white border-[#1d1d1f] shadow-md transform scale-105"
+                                      : taken
+                                        ? "bg-[#f5f5f7] text-[#d2d2d7] border-transparent cursor-not-allowed line-through"
+                                        : "bg-[#f5f5f7] text-[#1d1d1f] border-transparent hover:bg-[#e8e8ed]"
+                                  )}
+                                >
+                                  {time}
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </section>
           )}
@@ -572,16 +602,29 @@ export default function UserPortal() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-[#1d1d1f] mb-2">Téléphone</label>
-                <div className="relative">
-                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#86868b]" />
-                  <input 
-                    type="tel" 
-                    required
-                    value={userInfo.phone}
-                    onChange={e => setUserInfo(prev => ({ ...prev, phone: e.target.value }))}
-                    className="w-full bg-[#f5f5f7] border border-transparent rounded-xl py-3.5 pl-12 pr-4 text-[#1d1d1f] focus:outline-none focus:border-[#0071e3] focus:ring-1 focus:ring-[#0071e3] focus:bg-white transition-all"
-                    placeholder="06 12 34 56 78"
-                  />
+                <div className="flex gap-2">
+                  <div className="relative w-1/3">
+                    <select
+                      value={userInfo.phonePrefix}
+                      onChange={e => setUserInfo(prev => ({ ...prev, phonePrefix: e.target.value }))}
+                      className="w-full bg-[#f5f5f7] border border-transparent rounded-xl py-3.5 pl-4 pr-8 text-[#1d1d1f] focus:outline-none focus:border-[#0071e3] focus:ring-1 focus:ring-[#0071e3] appearance-none"
+                    >
+                      <option value="+41">🇨🇭 +41</option>
+                      <option value="+33">🇫🇷 +33</option>
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#86868b] pointer-events-none" />
+                  </div>
+                  <div className="relative flex-1">
+                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#86868b]" />
+                    <input 
+                      type="tel" 
+                      required
+                      value={userInfo.phone}
+                      onChange={e => setUserInfo(prev => ({ ...prev, phone: e.target.value }))}
+                      className="w-full bg-[#f5f5f7] border border-transparent rounded-xl py-3.5 pl-12 pr-4 text-[#1d1d1f] focus:outline-none focus:border-[#0071e3] focus:ring-1 focus:ring-[#0071e3] focus:bg-white transition-all"
+                      placeholder={userInfo.phonePrefix === '+41' ? "79 123 45 67" : "6 12 34 56 78"}
+                    />
+                  </div>
                 </div>
               </div>
             </div>

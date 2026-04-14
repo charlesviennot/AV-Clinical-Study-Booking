@@ -2,11 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, signOut, signInWithPopup } from 'firebase/auth';
 import { collection, getDocs, deleteDoc, doc, setDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../lib/firebase';
-import { CalendarDays, LogOut, Trash2, Loader2, Users, Settings, X, Plus, Info, Calendar as CalendarIcon } from 'lucide-react';
+import { CalendarDays, LogOut, Trash2, Loader2, Users, Settings, X, Plus, Info, Calendar as CalendarIcon, ExternalLink, Database } from 'lucide-react';
 import { Link, Navigate } from 'react-router-dom';
-import { cn, getUpcomingWeeks, DEFAULT_TIMESLOTS } from '../lib/utils';
-
-const WEEKS = getUpcomingWeeks(8); // Show 8 weeks for admin
+import { cn, generateWeekData, DAYS, DEFAULT_TIMESLOTS } from '../lib/utils';
 
 export default function AdminDashboard() {
   const [user, setUser] = useState<any>(null);
@@ -20,8 +18,8 @@ export default function AdminDashboard() {
   const [bookings, setBookings] = useState<any[]>([]);
   const [loadingData, setLoadingData] = useState(false);
   
-  const [weekConfigs, setWeekConfigs] = useState<Record<string, string[]>>({});
-  const [selectedCalendarWeek, setSelectedCalendarWeek] = useState<string>(WEEKS[0].id);
+  const [studyWeeks, setStudyWeeks] = useState<any[]>([]);
+  const [selectedCalendarWeek, setSelectedCalendarWeek] = useState<string>('');
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -34,7 +32,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (user && isAdminUnlocked) {
       fetchBookings();
-      fetchWeekConfigs();
+      fetchStudyWeeks();
     }
   }, [user, isAdminUnlocked]);
 
@@ -52,16 +50,39 @@ export default function AdminDashboard() {
     }
   };
 
-  const fetchWeekConfigs = async () => {
+  const fetchStudyWeeks = async () => {
     try {
-      const snapshot = await getDocs(collection(db, 'weekConfigs'));
-      const configs: Record<string, string[]> = {};
-      snapshot.forEach(doc => {
-        configs[doc.id] = doc.data().slots;
-      });
-      setWeekConfigs(configs);
+      const snapshot = await getDocs(collection(db, 'studyWeeks'));
+      if (snapshot.empty) {
+        // Auto-generate 4 weeks if empty
+        const newWeeks = [];
+        let currentDate = new Date();
+        for (let i = 0; i < 4; i++) {
+          const weekData = generateWeekData(currentDate);
+          const newWeek = {
+            ...weekData,
+            slotsByDay: {
+              Lundi: [...DEFAULT_TIMESLOTS],
+              Mardi: [...DEFAULT_TIMESLOTS],
+              Mercredi: [...DEFAULT_TIMESLOTS],
+              Jeudi: [...DEFAULT_TIMESLOTS],
+              Vendredi: [...DEFAULT_TIMESLOTS],
+            }
+          };
+          await setDoc(doc(db, 'studyWeeks', weekData.id), newWeek);
+          newWeeks.push(newWeek);
+          currentDate.setDate(currentDate.getDate() + 7);
+        }
+        setStudyWeeks(newWeeks);
+        setSelectedCalendarWeek(newWeeks[0].id);
+      } else {
+        const weeks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        weeks.sort((a: any, b: any) => a.startDate - b.startDate);
+        setStudyWeeks(weeks);
+        if (weeks.length > 0) setSelectedCalendarWeek(weeks[0].id);
+      }
     } catch (error) {
-      console.error("Error fetching week configs:", error);
+      console.error("Error fetching study weeks:", error);
     }
   };
 
@@ -103,46 +124,81 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleAddSlot = async (weekId: string, newSlot: string) => {
+  const handleAddWeek = async () => {
+    let nextDate = new Date();
+    if (studyWeeks.length > 0) {
+      const lastWeek = studyWeeks[studyWeeks.length - 1];
+      nextDate = new Date(lastWeek.startDate);
+      nextDate.setDate(nextDate.getDate() + 7);
+    }
+    
+    const weekData = generateWeekData(nextDate);
+    const newWeek = {
+      ...weekData,
+      slotsByDay: {
+        Lundi: [...DEFAULT_TIMESLOTS],
+        Mardi: [...DEFAULT_TIMESLOTS],
+        Mercredi: [...DEFAULT_TIMESLOTS],
+        Jeudi: [...DEFAULT_TIMESLOTS],
+        Vendredi: [...DEFAULT_TIMESLOTS],
+      }
+    };
+
+    try {
+      await setDoc(doc(db, 'studyWeeks', weekData.id), newWeek);
+      fetchStudyWeeks();
+    } catch (error) {
+      console.error("Error adding week:", error);
+      alert("Erreur lors de l'ajout de la semaine.");
+    }
+  };
+
+  const handleDeleteWeek = async (weekId: string) => {
+    if (!window.confirm("Supprimer cette semaine ?")) return;
+    try {
+      await deleteDoc(doc(db, 'studyWeeks', weekId));
+      fetchStudyWeeks();
+    } catch (error) {
+      console.error("Error deleting week:", error);
+      alert("Erreur lors de la suppression.");
+    }
+  };
+
+  const handleAddSlotToDay = async (weekId: string, day: string, newSlot: string) => {
     if (!newSlot.trim()) return;
-    const currentSlots = weekConfigs[weekId] || DEFAULT_TIMESLOTS;
+    
+    const week = studyWeeks.find(w => w.id === weekId);
+    if (!week) return;
+
+    const currentSlots = week.slotsByDay?.[day] || [];
     if (currentSlots.includes(newSlot.trim())) return;
     
     const updatedSlots = [...currentSlots, newSlot.trim()].sort();
+    const updatedSlotsByDay = { ...week.slotsByDay, [day]: updatedSlots };
     
     try {
-      await setDoc(doc(db, 'weekConfigs', weekId), { slots: updatedSlots });
-      setWeekConfigs(prev => ({ ...prev, [weekId]: updatedSlots }));
+      await setDoc(doc(db, 'studyWeeks', weekId), { slotsByDay: updatedSlotsByDay }, { merge: true });
+      setStudyWeeks(prev => prev.map(w => w.id === weekId ? { ...w, slotsByDay: updatedSlotsByDay } : w));
     } catch (error) {
       console.error("Error adding slot:", error);
       alert("Erreur lors de l'ajout du créneau.");
     }
   };
 
-  const handleRemoveSlot = async (weekId: string, slotToRemove: string) => {
-    const currentSlots = weekConfigs[weekId] || DEFAULT_TIMESLOTS;
-    const updatedSlots = currentSlots.filter(s => s !== slotToRemove);
+  const handleRemoveSlotFromDay = async (weekId: string, day: string, slotToRemove: string) => {
+    const week = studyWeeks.find(w => w.id === weekId);
+    if (!week) return;
+
+    const currentSlots = week.slotsByDay?.[day] || [];
+    const updatedSlots = currentSlots.filter((s: string) => s !== slotToRemove);
+    const updatedSlotsByDay = { ...week.slotsByDay, [day]: updatedSlots };
     
     try {
-      await setDoc(doc(db, 'weekConfigs', weekId), { slots: updatedSlots });
-      setWeekConfigs(prev => ({ ...prev, [weekId]: updatedSlots }));
+      await setDoc(doc(db, 'studyWeeks', weekId), { slotsByDay: updatedSlotsByDay }, { merge: true });
+      setStudyWeeks(prev => prev.map(w => w.id === weekId ? { ...w, slotsByDay: updatedSlotsByDay } : w));
     } catch (error) {
       console.error("Error removing slot:", error);
       alert("Erreur lors de la suppression du créneau.");
-    }
-  };
-
-  const handleResetSlots = async (weekId: string) => {
-    if (!window.confirm("Réinitialiser les créneaux de cette semaine aux valeurs par défaut ?")) return;
-    try {
-      await deleteDoc(doc(db, 'weekConfigs', weekId));
-      setWeekConfigs(prev => {
-        const next = { ...prev };
-        delete next[weekId];
-        return next;
-      });
-    } catch (error) {
-      console.error("Error resetting slots:", error);
     }
   };
 
@@ -169,6 +225,30 @@ export default function AdminDashboard() {
           </div>
         </div>
         <div className="flex items-center gap-4">
+          {isAdminUnlocked && (
+            <div className="hidden lg:flex items-center gap-3 mr-4 border-r border-[#d2d2d7] pr-4">
+              <a 
+                href="https://pro.onedoc.ch/calendar" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-sm font-medium text-[#0071e3] hover:bg-[#f5f9ff] px-3 py-1.5 rounded-full transition-colors"
+              >
+                <CalendarIcon className="w-4 h-4" />
+                OneDoc
+                <ExternalLink className="w-3 h-3" />
+              </a>
+              <a 
+                href="https://proto-tracker.vercel.app" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-sm font-medium text-[#0071e3] hover:bg-[#f5f9ff] px-3 py-1.5 rounded-full transition-colors"
+              >
+                <Database className="w-4 h-4" />
+                Data Tracker
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+          )}
           <div className="hidden sm:flex items-center gap-2 text-sm font-medium text-[#1d1d1f] bg-[#f5f5f7] px-4 py-1.5 rounded-full">
             <Users className="w-4 h-4 text-[#0071e3]" />
             {user.displayName || user.email}
@@ -292,14 +372,16 @@ export default function AdminDashboard() {
               </div>
             ) : (
               <div className="space-y-10">
-                {Object.entries(groupedBookings).sort(([a], [b]) => a.localeCompare(b)).map(([week, weekBookings]: [string, any[]]) => (
-                  <div key={week} className="bg-white rounded-[2rem] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.02)] border border-[#d2d2d7]/30">
-                    <div className="bg-[#f5f5f7] px-6 py-4 border-b border-[#d2d2d7]/50">
-                      <h2 className="font-semibold text-lg flex items-center gap-2">
-                        <CalendarDays className="w-5 h-5 text-[#0071e3]" />
-                        {WEEKS.find(w => w.id === week)?.label || `Semaine du ${week}`}
-                      </h2>
-                    </div>
+                {Object.entries(groupedBookings).sort(([a], [b]) => a.localeCompare(b)).map(([week, weekBookings]: [string, any[]]) => {
+                  const weekLabel = studyWeeks.find(w => w.id === week)?.label || `Semaine du ${week}`;
+                  return (
+                    <div key={week} className="bg-white rounded-[2rem] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.02)] border border-[#d2d2d7]/30">
+                      <div className="bg-[#f5f5f7] px-6 py-4 border-b border-[#d2d2d7]/50">
+                        <h2 className="font-semibold text-lg flex items-center gap-2">
+                          <CalendarDays className="w-5 h-5 text-[#0071e3]" />
+                          {weekLabel}
+                        </h2>
+                      </div>
                     <div className="divide-y divide-[#f5f5f7]">
                       {weekBookings.map((booking) => (
                         <div key={booking.id} className="p-6 flex flex-col md:flex-row gap-6 hover:bg-[#fafafa] transition-colors">
@@ -334,7 +416,8 @@ export default function AdminDashboard() {
                       ))}
                     </div>
                   </div>
-                ))}
+                );
+              })}
               </div>
             )}
           </>
@@ -350,7 +433,7 @@ export default function AdminDashboard() {
                 onChange={(e) => setSelectedCalendarWeek(e.target.value)}
                 className="bg-[#f5f5f7] border-none rounded-xl px-4 py-2 text-sm font-medium outline-none focus:ring-2 focus:ring-[#0071e3]"
               >
-                {WEEKS.map(w => (
+                {studyWeeks.map(w => (
                   <option key={w.id} value={w.id}>{w.label}</option>
                 ))}
               </select>
@@ -361,7 +444,7 @@ export default function AdminDashboard() {
                 <thead>
                   <tr>
                     <th className="p-4 border-b border-r border-[#d2d2d7]/50 bg-[#f5f5f7] w-32 font-semibold text-sm text-[#86868b] text-center">Horaires</th>
-                    {['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'].map(day => (
+                    {DAYS.map(day => (
                       <th key={day} className="p-4 border-b border-[#d2d2d7]/50 bg-[#f5f5f7] font-semibold text-[#1d1d1f] text-center w-1/5">
                         {day}
                       </th>
@@ -369,104 +452,135 @@ export default function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(weekConfigs[selectedCalendarWeek] || DEFAULT_TIMESLOTS).map((time, idx) => (
-                    <tr key={time} className={idx % 2 === 0 ? 'bg-white' : 'bg-[#fafafa]'}>
-                      <td className="p-4 border-r border-[#d2d2d7]/50 text-sm font-medium text-[#86868b] text-center whitespace-nowrap">
-                        {time}
-                      </td>
-                      {['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'].map(day => {
-                        const cellBooking = bookings.find(b => 
-                          b.week === selectedCalendarWeek && 
-                          b.slots && b.slots[day] === time
-                        );
+                  {(() => {
+                    const selectedWeekData = studyWeeks.find(w => w.id === selectedCalendarWeek);
+                    const allSlotsSet = new Set<string>();
+                    if (selectedWeekData?.slotsByDay) {
+                      Object.values(selectedWeekData.slotsByDay).forEach((slots: any) => {
+                        slots.forEach((s: string) => allSlotsSet.add(s));
+                      });
+                    }
+                    const uniqueSlots = Array.from(allSlotsSet).sort();
 
-                        return (
-                          <td key={day} className="p-3 border-b border-[#d2d2d7]/30 relative h-24">
-                            {cellBooking ? (
-                              <div className="absolute inset-2 bg-[#f5f9ff] border border-[#0071e3]/20 rounded-xl p-3 flex flex-col justify-center overflow-hidden">
-                                <div className="font-semibold text-sm text-[#0071e3] truncate">{cellBooking.userInfo?.name}</div>
-                                <div className="text-xs text-[#86868b] truncate mt-0.5">{cellBooking.userInfo?.phone}</div>
-                              </div>
-                            ) : (
-                              <div className="absolute inset-2 border-2 border-dashed border-[#d2d2d7]/50 rounded-xl flex items-center justify-center">
-                                <span className="text-xs text-[#d2d2d7] font-medium">Libre</span>
-                              </div>
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
+                    return uniqueSlots.map((time, idx) => (
+                      <tr key={time} className={idx % 2 === 0 ? 'bg-white' : 'bg-[#fafafa]'}>
+                        <td className="p-4 border-r border-[#d2d2d7]/50 text-sm font-medium text-[#86868b] text-center whitespace-nowrap">
+                          {time}
+                        </td>
+                        {DAYS.map(day => {
+                          const isSlotAvailableForDay = selectedWeekData?.slotsByDay?.[day]?.includes(time);
+                          const cellBooking = bookings.find(b => 
+                            b.week === selectedCalendarWeek && 
+                            b.slots && b.slots[day] === time
+                          );
+
+                          return (
+                            <td key={day} className="p-3 border-b border-[#d2d2d7]/30 relative h-24">
+                              {cellBooking ? (
+                                <div className="absolute inset-2 bg-[#f5f9ff] border border-[#0071e3]/20 rounded-xl p-3 flex flex-col justify-center overflow-hidden">
+                                  <div className="font-semibold text-sm text-[#0071e3] truncate">{cellBooking.userInfo?.name}</div>
+                                  <div className="text-xs text-[#86868b] truncate mt-0.5">{cellBooking.userInfo?.phone}</div>
+                                </div>
+                              ) : isSlotAvailableForDay ? (
+                                <div className="absolute inset-2 border-2 border-dashed border-[#d2d2d7]/50 rounded-xl flex items-center justify-center">
+                                  <span className="text-xs text-[#d2d2d7] font-medium">Libre</span>
+                                </div>
+                              ) : (
+                                <div className="absolute inset-2 bg-[#f5f5f7] rounded-xl flex items-center justify-center">
+                                  <span className="text-xs text-[#d2d2d7] font-medium">-</span>
+                                </div>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ));
+                  })()}
                 </tbody>
               </table>
             </div>
           </div>
         ) : (
           <div className="space-y-6">
-            <div className="bg-[#e8f2ff] text-[#0071e3] p-4 rounded-2xl text-sm mb-8 flex items-start gap-3">
-              <Info className="w-5 h-5 shrink-0 mt-0.5" />
-              <p>
-                Modifiez ici les créneaux horaires disponibles pour chaque semaine. 
-                Si vous ne définissez rien, les créneaux par défaut seront utilisés.
-              </p>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+              <div className="bg-[#e8f2ff] text-[#0071e3] p-4 rounded-2xl text-sm flex items-start gap-3 flex-1">
+                <Info className="w-5 h-5 shrink-0 mt-0.5" />
+                <p>
+                  Gérez ici les semaines d'étude et les créneaux disponibles pour chaque jour.
+                </p>
+              </div>
+              <button 
+                onClick={handleAddWeek}
+                className="px-6 py-3.5 bg-[#1d1d1f] text-white rounded-xl font-medium hover:bg-black transition-colors flex items-center gap-2 whitespace-nowrap shadow-sm"
+              >
+                <Plus className="w-5 h-5" />
+                Ajouter une semaine
+              </button>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-6">
-              {WEEKS.map(week => {
-                const slots = weekConfigs[week.id] || DEFAULT_TIMESLOTS;
-                const isCustom = !!weekConfigs[week.id];
-
-                return (
-                  <div key={week.id} className="bg-white rounded-2xl p-6 border border-[#d2d2d7]/30 shadow-[0_4px_24px_rgba(0,0,0,0.02)]">
-                    <div className="flex items-start justify-between mb-4">
-                      <h3 className="font-semibold text-lg">{week.label}</h3>
-                      {isCustom && (
-                        <button 
-                          onClick={() => handleResetSlots(week.id)}
-                          className="text-xs text-[#86868b] hover:text-[#ff3b30] underline"
-                        >
-                          Réinitialiser
-                        </button>
-                      )}
-                    </div>
-                    
-                    <div className="flex flex-wrap gap-2 mb-6">
-                      {slots.map(slot => (
-                        <span key={slot} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#f5f5f7] text-[#1d1d1f] rounded-lg text-sm border border-[#d2d2d7]/50">
-                          {slot}
-                          <button 
-                            onClick={() => handleRemoveSlot(week.id, slot)} 
-                            className="text-[#86868b] hover:text-[#ff3b30] transition-colors ml-1"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-
-                    <form onSubmit={(e) => {
-                      e.preventDefault();
-                      const input = e.currentTarget.elements.namedItem('newSlot') as HTMLInputElement;
-                      handleAddSlot(week.id, input.value);
-                      input.value = '';
-                    }} className="flex gap-2">
-                      <input 
-                        name="newSlot" 
-                        type="text" 
-                        placeholder="Ex: 18h00 - 19h30" 
-                        className="flex-1 bg-[#f5f5f7] border border-transparent rounded-xl px-4 py-2.5 text-sm focus:border-[#0071e3] focus:ring-1 focus:ring-[#0071e3] outline-none transition-all" 
-                      />
-                      <button 
-                        type="submit" 
-                        className="px-4 py-2.5 bg-[#1d1d1f] text-white rounded-xl text-sm font-medium hover:bg-black transition-colors flex items-center gap-1"
-                      >
-                        <Plus className="w-4 h-4" />
-                        Ajouter
-                      </button>
-                    </form>
+            <div className="space-y-8">
+              {studyWeeks.map(week => (
+                <div key={week.id} className="bg-white rounded-3xl p-6 md:p-8 border border-[#d2d2d7]/30 shadow-[0_4px_24px_rgba(0,0,0,0.02)]">
+                  <div className="flex items-center justify-between mb-6 pb-4 border-b border-[#f5f5f7]">
+                    <h3 className="text-xl font-semibold">{week.label}</h3>
+                    <button 
+                      onClick={() => handleDeleteWeek(week.id)}
+                      className="text-[#ff3b30] hover:bg-[#fff0f0] px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span className="hidden sm:inline">Supprimer la semaine</span>
+                    </button>
                   </div>
-                );
-              })}
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+                    {DAYS.map(day => {
+                      const slots = week.slotsByDay?.[day] || [];
+                      return (
+                        <div key={day} className="bg-[#f5f5f7] rounded-2xl p-4 flex flex-col">
+                          <h4 className="font-semibold text-[#1d1d1f] mb-4 text-center">{day}</h4>
+                          <div className="space-y-2 mb-4 flex-1">
+                            {slots.map((slot: string) => (
+                              <div key={slot} className="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-[#d2d2d7]/50 text-sm shadow-sm">
+                                <span className="font-medium">{slot}</span>
+                                <button 
+                                  onClick={() => handleRemoveSlotFromDay(week.id, day, slot)} 
+                                  className="text-[#86868b] hover:text-[#ff3b30] transition-colors"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ))}
+                            {slots.length === 0 && (
+                              <div className="text-center text-xs text-[#86868b] py-4 bg-white/50 rounded-lg border border-dashed border-[#d2d2d7]">
+                                Aucun créneau
+                              </div>
+                            )}
+                          </div>
+                          <form onSubmit={(e) => {
+                            e.preventDefault();
+                            const input = e.currentTarget.elements.namedItem('newSlot') as HTMLInputElement;
+                            handleAddSlotToDay(week.id, day, input.value);
+                            input.value = '';
+                          }} className="flex gap-1.5 mt-auto">
+                            <input 
+                              name="newSlot" 
+                              type="text" 
+                              placeholder="10h-11h" 
+                              className="w-full bg-white border border-[#d2d2d7]/50 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#0071e3] focus:ring-1 focus:ring-[#0071e3] transition-all" 
+                            />
+                            <button 
+                              type="submit" 
+                              className="bg-[#1d1d1f] text-white p-2 rounded-lg hover:bg-black transition-colors"
+                            >
+                              <Plus className="w-4 h-4" />
+                            </button>
+                          </form>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
