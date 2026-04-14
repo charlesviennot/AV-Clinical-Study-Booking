@@ -165,6 +165,7 @@ export default function UserPortal() {
   // Fetch weeks
   useEffect(() => {
     const fetchWeeks = async () => {
+      if (!user) return;
       try {
         const snapshot = await getDocs(collection(db, 'studyWeeks'));
         const weeks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -175,7 +176,7 @@ export default function UserPortal() {
       }
     };
     fetchWeeks();
-  }, []);
+  }, [user]);
 
   const fetchUserBooking = async (uid: string) => {
     setLoadingBooking(true);
