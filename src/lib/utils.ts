@@ -13,6 +13,8 @@ export const DEFAULT_TIMESLOTS = [
   '16h00 - 17h30'
 ];
 
+export const ALL_DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'];
+
 export const getUpcomingWeeks = (count = 4) => {
   const weeks = [];
   const today = new Date();

@@ -1,131 +1,116 @@
 import React, { useState, useEffect } from 'react';
-import { onAuthStateChanged, signOut, signInWithPopup } from 'firebase/auth';
-import { collection, getDocs, deleteDoc, doc, setDoc } from 'firebase/firestore';
-import { auth, db, googleProvider } from '../lib/firebase';
-import { CalendarDays, LogOut, Trash2, Loader2, Users, Settings, X, Plus, Info, Calendar as CalendarIcon } from 'lucide-react';
-import { Link, Navigate } from 'react-router-dom';
-import { cn, getUpcomingWeeks, DEFAULT_TIMESLOTS } from '../lib/utils';
+import { collection, deleteDoc, doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import { CalendarDays, LogOut, Trash2, Loader2, Users, Settings, X, Plus, Info } from 'lucide-react';
+import { cn, getUpcomingWeeks, DEFAULT_TIMESLOTS, ALL_DAYS } from '../lib/utils';
 
 const WEEKS = getUpcomingWeeks(8); // Show 8 weeks for admin
 
 export default function AdminDashboard() {
-  const [user, setUser] = useState<any>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(sessionStorage.getItem('adminAuth') === 'true');
   const [password, setPassword] = useState('');
-  const [loadingAuth, setLoadingAuth] = useState(true);
   const [loginError, setLoginError] = useState('');
-  const [isAdminUnlocked, setIsAdminUnlocked] = useState(() => sessionStorage.getItem('adminUnlocked') === 'true');
   
-  const [activeTab, setActiveTab] = useState<'bookings' | 'calendar' | 'settings'>('bookings');
+  const [activeTab, setActiveTab] = useState<'bookings' | 'settings'>('bookings');
   
   const [bookings, setBookings] = useState<any[]>([]);
   const [loadingData, setLoadingData] = useState(false);
   
-  const [weekConfigs, setWeekConfigs] = useState<Record<string, string[]>>({});
-  const [selectedCalendarWeek, setSelectedCalendarWeek] = useState<string>(WEEKS[0].id);
+  const [weekConfigs, setWeekConfigs] = useState<Record<string, any>>({});
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setLoadingAuth(false);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (user && isAdminUnlocked) {
-      fetchBookings();
-      fetchWeekConfigs();
-    }
-  }, [user, isAdminUnlocked]);
-
-  const fetchBookings = async () => {
+    if (!isAuthenticated) return;
+    
     setLoadingData(true);
-    try {
-      const querySnapshot = await getDocs(collection(db, 'bookings'));
-      const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    const unsubBookings = onSnapshot(collection(db, 'bookings'), (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       data.sort((a: any, b: any) => (b.createdAt || 0) - (a.createdAt || 0));
       setBookings(data);
-    } catch (error) {
-      console.error("Error fetching bookings:", error);
-    } finally {
       setLoadingData(false);
-    }
-  };
+    });
 
-  const fetchWeekConfigs = async () => {
-    try {
-      const snapshot = await getDocs(collection(db, 'weekConfigs'));
-      const configs: Record<string, string[]> = {};
+    const unsubConfigs = onSnapshot(collection(db, 'weekConfigs'), (snapshot) => {
+      const configs: Record<string, any> = {};
       snapshot.forEach(doc => {
-        configs[doc.id] = doc.data().slots;
+        configs[doc.id] = doc.data();
       });
       setWeekConfigs(configs);
-    } catch (error) {
-      console.error("Error fetching week configs:", error);
-    }
-  };
+    });
 
-  const handleGoogleLogin = async () => {
-    setLoginError('');
-    try {
-      await signInWithPopup(auth, googleProvider);
-    } catch (error) {
-      console.error("Error signing in with Google:", error);
-      setLoginError("Erreur lors de la connexion avec Google.");
-    }
-  };
+    return () => {
+      unsubBookings();
+      unsubConfigs();
+    };
+  }, [isAuthenticated]);
 
-  const handlePasswordSubmit = (e: React.FormEvent) => {
+  const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
     if (password === 'admin_av_booking') {
-      sessionStorage.setItem('adminUnlocked', 'true');
-      setIsAdminUnlocked(true);
+      setIsAuthenticated(true);
+      sessionStorage.setItem('adminAuth', 'true');
     } else {
       setLoginError("Mot de passe incorrect.");
     }
   };
 
   const handleLogout = () => {
-    sessionStorage.removeItem('adminUnlocked');
-    setIsAdminUnlocked(false);
-    signOut(auth);
+    setIsAuthenticated(false);
+    sessionStorage.removeItem('adminAuth');
   };
 
   const handleDeleteBooking = async (id: string) => {
     if (!window.confirm("Supprimer cette réservation ?")) return;
     try {
       await deleteDoc(doc(db, 'bookings', id));
-      setBookings(prev => prev.filter(b => b.id !== id));
     } catch (error) {
       console.error("Error deleting:", error);
       alert("Erreur lors de la suppression.");
     }
   };
 
-  const handleAddSlot = async (weekId: string, newSlot: string) => {
+  const handleAddSlot = async (weekId: string, day: string, newSlot: string) => {
     if (!newSlot.trim()) return;
-    const currentSlots = weekConfigs[weekId] || DEFAULT_TIMESLOTS;
-    if (currentSlots.includes(newSlot.trim())) return;
     
-    const updatedSlots = [...currentSlots, newSlot.trim()].sort();
+    const currentWeekConfig = weekConfigs[weekId]?.days || {};
+    const currentDaySlots = currentWeekConfig[day] || DEFAULT_TIMESLOTS;
+    
+    if (currentDaySlots.includes(newSlot.trim())) return; // Prevent duplicates
+    
+    const updatedDaySlots = [...currentDaySlots, newSlot.trim()].sort();
+    const updatedWeekConfig = { ...currentWeekConfig, [day]: updatedDaySlots };
+    
+    // Ensure all other days are populated with defaults if they don't exist yet
+    ALL_DAYS.forEach(d => {
+      if (!updatedWeekConfig[d]) {
+        updatedWeekConfig[d] = [...DEFAULT_TIMESLOTS];
+      }
+    });
     
     try {
-      await setDoc(doc(db, 'weekConfigs', weekId), { slots: updatedSlots });
-      setWeekConfigs(prev => ({ ...prev, [weekId]: updatedSlots }));
+      await setDoc(doc(db, 'weekConfigs', weekId), { days: updatedWeekConfig });
     } catch (error) {
       console.error("Error adding slot:", error);
       alert("Erreur lors de l'ajout du créneau.");
     }
   };
 
-  const handleRemoveSlot = async (weekId: string, slotToRemove: string) => {
-    const currentSlots = weekConfigs[weekId] || DEFAULT_TIMESLOTS;
-    const updatedSlots = currentSlots.filter(s => s !== slotToRemove);
+  const handleRemoveSlot = async (weekId: string, day: string, slotToRemove: string) => {
+    const currentWeekConfig = weekConfigs[weekId]?.days || {};
+    const currentDaySlots = currentWeekConfig[day] || DEFAULT_TIMESLOTS;
+    
+    const updatedDaySlots = currentDaySlots.filter(s => s !== slotToRemove);
+    const updatedWeekConfig = { ...currentWeekConfig, [day]: updatedDaySlots };
+    
+    ALL_DAYS.forEach(d => {
+      if (!updatedWeekConfig[d]) {
+        updatedWeekConfig[d] = [...DEFAULT_TIMESLOTS];
+      }
+    });
     
     try {
-      await setDoc(doc(db, 'weekConfigs', weekId), { slots: updatedSlots });
-      setWeekConfigs(prev => ({ ...prev, [weekId]: updatedSlots }));
+      await setDoc(doc(db, 'weekConfigs', weekId), { days: updatedWeekConfig });
     } catch (error) {
       console.error("Error removing slot:", error);
       alert("Erreur lors de la suppression du créneau.");
@@ -136,95 +121,45 @@ export default function AdminDashboard() {
     if (!window.confirm("Réinitialiser les créneaux de cette semaine aux valeurs par défaut ?")) return;
     try {
       await deleteDoc(doc(db, 'weekConfigs', weekId));
-      setWeekConfigs(prev => {
-        const next = { ...prev };
-        delete next[weekId];
-        return next;
-      });
     } catch (error) {
       console.error("Error resetting slots:", error);
     }
   };
 
-  if (loadingAuth) {
+  if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-[#0071e3] animate-spin" />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <Navigate to="/" replace />;
-  }
-
-  const Header = () => (
-    <header className="bg-white/70 backdrop-blur-md sticky top-0 z-50 border-b border-[#d2d2d7]/50">
-      <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-6">
-          <img src="/images/AVI_Logo_Black.png" alt="AudioVitality" className="h-6 md:h-8 object-contain" />
-          <div className="hidden sm:flex items-center gap-1 bg-[#f5f5f7] p-1 rounded-full">
-            <Link to="/" className="px-4 py-1.5 text-[#86868b] hover:text-[#1d1d1f] rounded-full text-sm font-medium transition-colors">Mon Espace</Link>
-            <span className="px-4 py-1.5 bg-white text-[#1d1d1f] rounded-full text-sm font-medium shadow-sm">Administration</span>
+      <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center p-4 font-sans">
+        <div className="max-w-md w-full bg-white rounded-[2rem] p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+          <div className="text-center mb-8">
+            <img src="/images/AVI_Logo_Black.png" alt="AudioVitality" className="h-8 mx-auto mb-6" />
+            <h1 className="text-2xl font-semibold tracking-tight">Espace Administrateur</h1>
           </div>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="hidden sm:flex items-center gap-2 text-sm font-medium text-[#1d1d1f] bg-[#f5f5f7] px-4 py-1.5 rounded-full">
-            <Users className="w-4 h-4 text-[#0071e3]" />
-            {user.displayName || user.email}
-          </div>
-          <button 
-            onClick={handleLogout}
-            className="flex items-center gap-2 text-sm font-medium text-[#86868b] hover:text-[#1d1d1f] transition-colors"
-          >
-            <LogOut className="w-4 h-4" />
-            <span className="hidden sm:inline">Déconnexion</span>
-          </button>
-        </div>
-      </div>
-    </header>
-  );
-
-  if (user && !isAdminUnlocked) {
-    return (
-      <div className="min-h-screen bg-[#f5f5f7] text-[#1d1d1f] font-sans pb-32">
-        <Header />
-        <main className="max-w-md mx-auto px-4 py-20">
-          <div className="bg-white rounded-[2rem] p-10 text-center shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-            <div className="w-16 h-16 bg-[#f5f5f7] rounded-full flex items-center justify-center mx-auto mb-6">
-              <Settings className="w-8 h-8 text-[#1d1d1f]" />
+          
+          {loginError && (
+            <div className="bg-[#fff0f0] text-[#ff3b30] p-4 rounded-xl mb-6 text-sm">
+              {loginError}
             </div>
-            <h1 className="text-2xl font-semibold tracking-tight mb-2">Accès Sécurisé</h1>
-            <p className="text-[#86868b] mb-8 text-sm">
-              Veuillez saisir le mot de passe pour accéder à l'administration.
-            </p>
-            
-            {loginError && (
-              <div className="bg-[#fff0f0] text-[#ff3b30] p-4 rounded-xl mb-6 text-sm">
-                {loginError}
-              </div>
-            )}
+          )}
 
-            <form onSubmit={handlePasswordSubmit} className="space-y-4">
-              <div>
-                <input 
-                  type="password" 
-                  required
-                  placeholder="Mot de passe administrateur"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  className="w-full bg-[#f5f5f7] border border-transparent rounded-xl py-3.5 px-4 text-[#1d1d1f] focus:outline-none focus:border-[#0071e3] focus:ring-1 focus:ring-[#0071e3] focus:bg-white transition-all text-center"
-                />
-              </div>
-              <button 
-                type="submit"
-                className="w-full py-3.5 mt-4 bg-[#1d1d1f] text-white rounded-xl font-medium hover:bg-black transition-colors"
-              >
-                Déverrouiller
-              </button>
-            </form>
-          </div>
-        </main>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-[#1d1d1f] mb-2">Mot de passe</label>
+              <input 
+                type="password" 
+                required
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                className="w-full bg-[#f5f5f7] border border-transparent rounded-xl py-3 px-4 text-[#1d1d1f] focus:outline-none focus:border-[#0071e3] focus:ring-1 focus:ring-[#0071e3] focus:bg-white transition-all"
+              />
+            </div>
+            <button 
+              type="submit"
+              className="w-full py-3.5 mt-4 bg-[#1d1d1f] text-white rounded-xl font-medium hover:bg-black transition-colors"
+            >
+              Se connecter
+            </button>
+          </form>
+        </div>
       </div>
     );
   }
@@ -238,7 +173,21 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-[#f5f5f7] text-[#1d1d1f] font-sans pb-32">
-      <Header />
+      <header className="bg-white/70 backdrop-blur-md sticky top-0 z-50 border-b border-[#d2d2d7]/50">
+        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <img src="/images/AVI_Logo_Black.png" alt="AudioVitality" className="h-6 object-contain" />
+            <span className="hidden sm:inline-block px-3 py-1 bg-[#f5f5f7] text-xs font-medium rounded-full text-[#86868b]">Admin</span>
+          </div>
+          <button 
+            onClick={handleLogout}
+            className="flex items-center gap-2 text-sm font-medium text-[#86868b] hover:text-[#1d1d1f] transition-colors"
+          >
+            <LogOut className="w-4 h-4" />
+            Déconnexion
+          </button>
+        </div>
+      </header>
 
       <main className="max-w-6xl mx-auto px-4 py-10">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8">
@@ -254,16 +203,6 @@ export default function AdminDashboard() {
             >
               <Users className="w-4 h-4" />
               Réservations
-            </button>
-            <button 
-              onClick={() => setActiveTab('calendar')} 
-              className={cn(
-                "px-5 py-2 rounded-full text-sm font-medium transition-colors flex items-center gap-2", 
-                activeTab === 'calendar' ? "bg-[#1d1d1f] text-white" : "text-[#86868b] hover:text-[#1d1d1f]"
-              )}
-            >
-              <CalendarIcon className="w-4 h-4" />
-              Calendrier
             </button>
             <button 
               onClick={() => setActiveTab('settings')} 
@@ -292,7 +231,7 @@ export default function AdminDashboard() {
               </div>
             ) : (
               <div className="space-y-10">
-                {Object.entries(groupedBookings).sort(([a], [b]) => a.localeCompare(b)).map(([week, weekBookings]: [string, any[]]) => (
+                {Object.entries(groupedBookings).sort(([a], [b]) => a.localeCompare(b)).map(([week, weekBookings]) => (
                   <div key={week} className="bg-white rounded-[2rem] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.02)] border border-[#d2d2d7]/30">
                     <div className="bg-[#f5f5f7] px-6 py-4 border-b border-[#d2d2d7]/50">
                       <h2 className="font-semibold text-lg flex items-center gap-2">
@@ -338,82 +277,19 @@ export default function AdminDashboard() {
               </div>
             )}
           </>
-        ) : activeTab === 'calendar' ? (
-          <div className="space-y-8">
-            <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-[#d2d2d7]/30 shadow-sm">
-              <h2 className="font-semibold text-lg flex items-center gap-2">
-                <CalendarIcon className="w-5 h-5 text-[#0071e3]" />
-                Vue Calendrier
-              </h2>
-              <select 
-                value={selectedCalendarWeek}
-                onChange={(e) => setSelectedCalendarWeek(e.target.value)}
-                className="bg-[#f5f5f7] border-none rounded-xl px-4 py-2 text-sm font-medium outline-none focus:ring-2 focus:ring-[#0071e3]"
-              >
-                {WEEKS.map(w => (
-                  <option key={w.id} value={w.id}>{w.label}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="bg-white rounded-[2rem] overflow-hidden border border-[#d2d2d7]/30 shadow-[0_4px_24px_rgba(0,0,0,0.02)] overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[800px]">
-                <thead>
-                  <tr>
-                    <th className="p-4 border-b border-r border-[#d2d2d7]/50 bg-[#f5f5f7] w-32 font-semibold text-sm text-[#86868b] text-center">Horaires</th>
-                    {['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'].map(day => (
-                      <th key={day} className="p-4 border-b border-[#d2d2d7]/50 bg-[#f5f5f7] font-semibold text-[#1d1d1f] text-center w-1/5">
-                        {day}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {(weekConfigs[selectedCalendarWeek] || DEFAULT_TIMESLOTS).map((time, idx) => (
-                    <tr key={time} className={idx % 2 === 0 ? 'bg-white' : 'bg-[#fafafa]'}>
-                      <td className="p-4 border-r border-[#d2d2d7]/50 text-sm font-medium text-[#86868b] text-center whitespace-nowrap">
-                        {time}
-                      </td>
-                      {['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'].map(day => {
-                        const cellBooking = bookings.find(b => 
-                          b.week === selectedCalendarWeek && 
-                          b.slots && b.slots[day] === time
-                        );
-
-                        return (
-                          <td key={day} className="p-3 border-b border-[#d2d2d7]/30 relative h-24">
-                            {cellBooking ? (
-                              <div className="absolute inset-2 bg-[#f5f9ff] border border-[#0071e3]/20 rounded-xl p-3 flex flex-col justify-center overflow-hidden">
-                                <div className="font-semibold text-sm text-[#0071e3] truncate">{cellBooking.userInfo?.name}</div>
-                                <div className="text-xs text-[#86868b] truncate mt-0.5">{cellBooking.userInfo?.phone}</div>
-                              </div>
-                            ) : (
-                              <div className="absolute inset-2 border-2 border-dashed border-[#d2d2d7]/50 rounded-xl flex items-center justify-center">
-                                <span className="text-xs text-[#d2d2d7] font-medium">Libre</span>
-                              </div>
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
         ) : (
           <div className="space-y-6">
             <div className="bg-[#e8f2ff] text-[#0071e3] p-4 rounded-2xl text-sm mb-8 flex items-start gap-3">
               <Info className="w-5 h-5 shrink-0 mt-0.5" />
               <p>
-                Modifiez ici les créneaux horaires disponibles pour chaque semaine. 
-                Si vous ne définissez rien, les créneaux par défaut seront utilisés.
+                Modifiez ici les créneaux horaires disponibles pour chaque jour de chaque semaine. 
+                Si vous ne définissez rien, les créneaux par défaut seront utilisés. Les modifications sont appliquées en temps réel.
               </p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-6">
               {WEEKS.map(week => {
-                const slots = weekConfigs[week.id] || DEFAULT_TIMESLOTS;
+                const weekConfig = weekConfigs[week.id]?.days || {};
                 const isCustom = !!weekConfigs[week.id];
 
                 return (
@@ -425,45 +301,53 @@ export default function AdminDashboard() {
                           onClick={() => handleResetSlots(week.id)}
                           className="text-xs text-[#86868b] hover:text-[#ff3b30] underline"
                         >
-                          Réinitialiser
+                          Réinitialiser la semaine
                         </button>
                       )}
                     </div>
                     
-                    <div className="flex flex-wrap gap-2 mb-6">
-                      {slots.map(slot => (
-                        <span key={slot} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#f5f5f7] text-[#1d1d1f] rounded-lg text-sm border border-[#d2d2d7]/50">
-                          {slot}
-                          <button 
-                            onClick={() => handleRemoveSlot(week.id, slot)} 
-                            className="text-[#86868b] hover:text-[#ff3b30] transition-colors ml-1"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </span>
-                      ))}
+                    <div className="space-y-6">
+                      {ALL_DAYS.map(day => {
+                        const slots = weekConfig[day] || DEFAULT_TIMESLOTS;
+                        return (
+                          <div key={day} className="border-t border-[#f5f5f7] pt-4">
+                            <h4 className="font-medium text-[#1d1d1f] mb-3">{day}</h4>
+                            <div className="flex flex-wrap gap-2 mb-3">
+                              {slots.map(slot => (
+                                <span key={slot} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#f5f5f7] text-[#1d1d1f] rounded-lg text-sm border border-[#d2d2d7]/50">
+                                  {slot}
+                                  <button 
+                                    onClick={() => handleRemoveSlot(week.id, day, slot)} 
+                                    className="text-[#86868b] hover:text-[#ff3b30] transition-colors ml-1"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                            <form onSubmit={(e) => {
+                              e.preventDefault();
+                              const input = e.currentTarget.elements.namedItem('newSlot') as HTMLInputElement;
+                              handleAddSlot(week.id, day, input.value);
+                              input.value = '';
+                            }} className="flex gap-2">
+                              <input 
+                                name="newSlot" 
+                                type="text" 
+                                placeholder="Ex: 18h00 - 19h30" 
+                                className="flex-1 bg-[#f5f5f7] border border-transparent rounded-xl px-4 py-2 text-sm focus:border-[#0071e3] focus:ring-1 focus:ring-[#0071e3] outline-none transition-all" 
+                              />
+                              <button 
+                                type="submit" 
+                                className="px-3 py-2 bg-[#1d1d1f] text-white rounded-xl text-sm font-medium hover:bg-black transition-colors flex items-center gap-1"
+                              >
+                                <Plus className="w-4 h-4" />
+                              </button>
+                            </form>
+                          </div>
+                        );
+                      })}
                     </div>
-
-                    <form onSubmit={(e) => {
-                      e.preventDefault();
-                      const input = e.currentTarget.elements.namedItem('newSlot') as HTMLInputElement;
-                      handleAddSlot(week.id, input.value);
-                      input.value = '';
-                    }} className="flex gap-2">
-                      <input 
-                        name="newSlot" 
-                        type="text" 
-                        placeholder="Ex: 18h00 - 19h30" 
-                        className="flex-1 bg-[#f5f5f7] border border-transparent rounded-xl px-4 py-2.5 text-sm focus:border-[#0071e3] focus:ring-1 focus:ring-[#0071e3] outline-none transition-all" 
-                      />
-                      <button 
-                        type="submit" 
-                        className="px-4 py-2.5 bg-[#1d1d1f] text-white rounded-xl text-sm font-medium hover:bg-black transition-colors flex items-center gap-1"
-                      >
-                        <Plus className="w-4 h-4" />
-                        Ajouter
-                      </button>
-                    </form>
                   </div>
                 );
               })}
