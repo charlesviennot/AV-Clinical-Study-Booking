@@ -292,7 +292,7 @@ export default function AdminDashboard() {
               </div>
             ) : (
               <div className="space-y-10">
-                {Object.entries(groupedBookings).sort(([a], [b]) => a.localeCompare(b)).map(([week, weekBookings]) => (
+                {Object.entries(groupedBookings).sort(([a], [b]) => a.localeCompare(b)).map(([week, weekBookings]: [string, any[]]) => (
                   <div key={week} className="bg-white rounded-[2rem] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.02)] border border-[#d2d2d7]/30">
                     <div className="bg-[#f5f5f7] px-6 py-4 border-b border-[#d2d2d7]/50">
                       <h2 className="font-semibold text-lg flex items-center gap-2">
