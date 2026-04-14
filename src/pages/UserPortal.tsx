@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth';
 import { collection, query, where, getDocs, addDoc, updateDoc, doc, deleteDoc, getDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../lib/firebase';
-import { CalendarDays, Clock, ChevronRight, User, Mail, Phone, Info, Loader2, LogOut, Edit, Trash2, CheckCircle2, MapPin, AlertTriangle, ChevronDown } from 'lucide-react';
+import { CalendarDays, Clock, ChevronRight, User, Mail, Phone, Info, Loader2, LogOut, Edit, Trash2, CheckCircle2, MapPin, AlertTriangle, ChevronDown, Sparkles, X } from 'lucide-react';
 import { cn, DEFAULT_TIMESLOTS } from '../lib/utils';
 import { Link } from 'react-router-dom';
 
@@ -37,6 +37,45 @@ export default function UserPortal() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [existingBookings, setExistingBookings] = useState<any[]>([]);
   const [studyWeeks, setStudyWeeks] = useState<any[]>([]);
+  const [showStudyInfo, setShowStudyInfo] = useState(false);
+
+  const StudyInfoModal = () => {
+    if (!showStudyInfo) return null;
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="bg-white rounded-[2rem] max-w-2xl w-full p-8 md:p-10 shadow-2xl relative animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+          <button 
+            onClick={() => setShowStudyInfo(false)}
+            className="absolute top-6 right-6 p-2 text-[#86868b] hover:text-[#1d1d1f] bg-[#f5f5f7] rounded-full transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <div className="flex items-center gap-3 mb-6 pr-10">
+            <div className="p-3 bg-[#f5f9ff] text-[#0071e3] rounded-2xl shrink-0">
+              <Sparkles className="w-6 h-6" />
+            </div>
+            <h2 className="text-2xl font-semibold tracking-tight">À propos de l'étude</h2>
+          </div>
+          <div className="space-y-4 text-[#1d1d1f] leading-relaxed text-lg">
+            <p>
+              Nous recherchons des volontaires pour participer à une étude sur l'optimisation de la récupération physique grâce à une technologie innovante : la <strong className="font-semibold text-[#0071e3]">Stimulation Vibroacoustique</strong>.
+            </p>
+            <p>
+              Concrètement, vous serez installé sur un équipement diffusant des ondes sonores à très basse fréquence qui se propagent naturellement dans l'eau de votre corps pour créer un doux micro-massage cellulaire de l'intérieur, sans secousse mécanique. L'objectif est d'observer comment ces ondes aident le système nerveux à basculer en mode "récupération profonde" lors de séances 100 % passives et relaxantes.
+            </p>
+            <p>
+              Il vous suffira de vous engager sur 3 courtes séances au laboratoire sur une semaine (parcours Lundi/Mercredi/Jeudi ou Mardi/Jeudi/Vendredi, avec horaires flexibles).
+            </p>
+            <div className="bg-[#f5f9ff] p-5 rounded-2xl border border-[#0071e3]/20 mt-6">
+              <p className="font-medium">
+                Enfin, pour les besoins de la recherche, certains participants seront assignés au hasard à un "groupe contrôle". Mais rassurez-vous : si c'est votre cas, une véritable séance complète de thérapie "Audiovitality" (d'une valeur habituelle de 250 €) vous sera intégralement offerte lors de votre dernier jour ! Vous avez ainsi la certitude de contribuer à la science sportive tout en profitant d'une technologie de pointe exceptionnelle pour votre propre bien-être.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   // Auth Listener
   useEffect(() => {
@@ -229,9 +268,18 @@ export default function UserPortal() {
   if (!user) {
     return (
       <div className="min-h-screen bg-[#f5f5f7] text-[#1d1d1f] flex items-center justify-center p-4 font-sans">
+        <StudyInfoModal />
         <div className="max-w-md w-full bg-white rounded-[2rem] p-10 text-center shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
           <img src="/images/AVI_Logo_Black.png" alt="AudioVitality" className="h-8 mx-auto mb-8" />
-          <h1 className="text-3xl font-semibold tracking-tight mb-4">Étude Clinique</h1>
+          <h1 className="text-3xl font-semibold tracking-tight mb-4 flex items-center justify-center gap-3">
+            Étude Clinique
+            <button onClick={() => setShowStudyInfo(true)} className="relative group" title="En savoir plus sur l'étude">
+              <span className="absolute inset-0 rounded-full bg-[#0071e3] animate-ping opacity-20 group-hover:opacity-40"></span>
+              <div className="relative bg-[#f5f9ff] text-[#0071e3] p-2 rounded-full border border-[#0071e3]/20 shadow-sm">
+                <Sparkles className="w-5 h-5" />
+              </div>
+            </button>
+          </h1>
           <p className="text-[#86868b] mb-8 text-lg leading-relaxed">
             Connectez-vous avec votre compte Google pour réserver ou gérer vos séances.
           </p>
@@ -256,6 +304,7 @@ export default function UserPortal() {
   if (userBooking && !isEditing) {
     return (
       <div className="min-h-screen bg-[#f5f5f7] text-[#1d1d1f] font-sans pb-32">
+        <StudyInfoModal />
         <header className="bg-white/70 backdrop-blur-md sticky top-0 z-50 border-b border-[#d2d2d7]/50">
           <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
             <div className="flex items-center gap-6">
@@ -280,7 +329,15 @@ export default function UserPortal() {
         <main className="max-w-3xl mx-auto px-4 py-10 md:py-16">
           <div className="text-center mb-10">
             <CheckCircle2 className="w-16 h-16 text-[#34c759] mx-auto mb-4" />
-            <h1 className="text-3xl font-semibold tracking-tight mb-2">Réservation confirmée</h1>
+            <h1 className="text-3xl font-semibold tracking-tight mb-2 flex items-center justify-center gap-3">
+              Réservation confirmée
+              <button onClick={() => setShowStudyInfo(true)} className="relative group" title="En savoir plus sur l'étude">
+                <span className="absolute inset-0 rounded-full bg-[#0071e3] animate-ping opacity-20 group-hover:opacity-40"></span>
+                <div className="relative bg-[#f5f9ff] text-[#0071e3] p-2 rounded-full border border-[#0071e3]/20 shadow-sm">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+              </button>
+            </h1>
             <p className="text-[#86868b]">Vos séances pour l'étude clinique sont programmées.</p>
           </div>
 
@@ -342,6 +399,7 @@ export default function UserPortal() {
   // BOOKING FORM (New or Editing)
   return (
     <div className="min-h-screen bg-[#f5f5f7] text-[#1d1d1f] font-sans selection:bg-[#0071e3] selection:text-white pb-32">
+      <StudyInfoModal />
       <header className="bg-white/70 backdrop-blur-md sticky top-0 z-50 border-b border-[#d2d2d7]/50">
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-6">
@@ -384,8 +442,14 @@ export default function UserPortal() {
         )}
 
         <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-semibold tracking-tight mb-4">
+          <h1 className="text-4xl md:text-5xl font-semibold tracking-tight mb-4 flex items-center justify-center gap-4 flex-wrap">
             {isEditing ? "Modifiez vos séances." : "Réservez vos séances."}
+            <button onClick={() => setShowStudyInfo(true)} className="relative group" title="En savoir plus sur l'étude">
+              <span className="absolute inset-0 rounded-full bg-[#0071e3] animate-ping opacity-20 group-hover:opacity-40"></span>
+              <div className="relative bg-[#f5f9ff] text-[#0071e3] p-2.5 rounded-full border border-[#0071e3]/20 shadow-sm">
+                <Sparkles className="w-6 h-6 md:w-7 md:h-7" />
+              </div>
+            </button>
           </h1>
           <p className="text-xl text-[#86868b]">Programmez vos 3 sessions obligatoires en quelques étapes.</p>
         </div>
@@ -430,10 +494,12 @@ export default function UserPortal() {
                 <div className="bg-[#fff0f0] p-6 md:p-8 rounded-3xl border border-[#ff3b30]/20">
                   <p className="text-[#ff3b30] font-semibold mb-3 flex items-center gap-2 text-xl">
                     <AlertTriangle className="w-6 h-6" />
-                    IMPORTANT POUR LE JOUR 0 (J0)
+                    TENUE DE SPORT OBLIGATOIRE (3 SESSIONS)
                   </p>
                   <p className="text-[#1d1d1f]">
-                    Vous allez réaliser un effort physique pour induire la fatigue musculaire. Merci de venir en tenue de sport (baskets, short/legging, t-shirt) pour cette première session. Les sessions suivantes (J+2 et J+3) seront des sessions de récupération passive et de mesures (pas d'effort).
+                    Le Jour 0 (J0), vous réaliserez un effort physique pour induire la fatigue musculaire. Les sessions suivantes (J+2 et J+3) seront dédiées à la récupération passive et aux mesures.
+                    <br/><br/>
+                    <strong className="font-semibold">Merci de venir en tenue de sport (baskets, short/legging, t-shirt) pour vos 3 sessions.</strong> Cela est indispensable pour l'effort du premier jour et facilitera grandement la pose des différents capteurs lors des jours suivants.
                   </p>
                 </div>
               </div>
@@ -448,26 +514,39 @@ export default function UserPortal() {
               <h3 className="text-2xl font-semibold tracking-tight">1. Choisissez votre semaine</h3>
             </div>
             <div className="grid sm:grid-cols-2 gap-4">
-              {studyWeeks.map(week => {
-                const isSelected = selectedWeek === week.id;
-                return (
-                  <button
-                    key={week.id}
-                    type="button"
-                    onClick={() => setSelectedWeek(week.id)}
-                    className={cn(
-                      "p-6 rounded-2xl border-2 text-left transition-all duration-200",
-                      isSelected 
-                        ? "border-[#0071e3] bg-[#f5f9ff] ring-1 ring-[#0071e3]" 
-                        : "border-[#d2d2d7] bg-white hover:border-[#86868b]"
-                    )}
-                  >
-                    <div className={cn("font-medium text-lg", isSelected ? "text-[#0071e3]" : "text-[#1d1d1f]")}>
-                      {week.label}
-                    </div>
-                  </button>
-                );
-              })}
+              {studyWeeks.length === 0 ? (
+                <div className="col-span-2 bg-[#fff0f0] border border-[#ff3b30]/20 p-6 rounded-2xl flex items-start gap-4">
+                  <AlertTriangle className="w-6 h-6 text-[#ff3b30] shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="text-[#1d1d1f] font-semibold text-lg mb-1">Aucune semaine disponible</h4>
+                    <p className="text-[#86868b]">
+                      Les semaines de réservation n'ont pas encore été configurées. 
+                      Si vous êtes l'administrateur, veuillez vous rendre dans l'onglet <Link to="/admin" className="text-[#0071e3] hover:underline">Administration</Link> pour générer les créneaux.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                studyWeeks.map(week => {
+                  const isSelected = selectedWeek === week.id;
+                  return (
+                    <button
+                      key={week.id}
+                      type="button"
+                      onClick={() => setSelectedWeek(week.id)}
+                      className={cn(
+                        "p-6 rounded-2xl border-2 text-left transition-all duration-200",
+                        isSelected 
+                          ? "border-[#0071e3] bg-[#f5f9ff] ring-1 ring-[#0071e3]" 
+                          : "border-[#d2d2d7] bg-white hover:border-[#86868b]"
+                      )}
+                    >
+                      <div className={cn("font-medium text-lg", isSelected ? "text-[#0071e3]" : "text-[#1d1d1f]")}>
+                        {week.label}
+                      </div>
+                    </button>
+                  );
+                })
+              )}
             </div>
           </section>
 
