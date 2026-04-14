@@ -4,6 +4,7 @@ import { collection, query, where, getDocs, addDoc, updateDoc, doc, deleteDoc, g
 import { auth, db, googleProvider } from '../lib/firebase';
 import { CalendarDays, Clock, ChevronRight, User, Mail, Phone, Info, Loader2, LogOut, Edit, Trash2, CheckCircle2 } from 'lucide-react';
 import { cn, getUpcomingWeeks, DEFAULT_TIMESLOTS } from '../lib/utils';
+import { Link } from 'react-router-dom';
 
 type GroupType = 'LUNDI' | 'MARDI' | null;
 
@@ -245,10 +246,22 @@ export default function UserPortal() {
       <div className="min-h-screen bg-[#f5f5f7] text-[#1d1d1f] font-sans pb-32">
         <header className="bg-white/70 backdrop-blur-md sticky top-0 z-50 border-b border-[#d2d2d7]/50">
           <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
-            <img src="/images/AVI_Logo_Black.png" alt="AudioVitality" className="h-6 md:h-8 object-contain" />
-            <button onClick={handleLogout} className="text-sm font-medium text-[#86868b] hover:text-[#1d1d1f] flex items-center gap-2">
-              <LogOut className="w-4 h-4" /> Déconnexion
-            </button>
+            <div className="flex items-center gap-6">
+              <img src="/images/AVI_Logo_Black.png" alt="AudioVitality" className="h-6 md:h-8 object-contain" />
+              <div className="hidden sm:flex items-center gap-1 bg-[#f5f5f7] p-1 rounded-full">
+                <span className="px-4 py-1.5 bg-white text-[#1d1d1f] rounded-full text-sm font-medium shadow-sm">Mon Espace</span>
+                <Link to="/admin" className="px-4 py-1.5 text-[#86868b] hover:text-[#1d1d1f] rounded-full text-sm font-medium transition-colors">Administration</Link>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="hidden sm:flex items-center gap-2 text-sm font-medium text-[#1d1d1f] bg-[#f5f5f7] px-4 py-1.5 rounded-full">
+                <User className="w-4 h-4 text-[#0071e3]" />
+                {user.displayName}
+              </div>
+              <button onClick={handleLogout} className="text-sm font-medium text-[#86868b] hover:text-[#1d1d1f] flex items-center gap-2">
+                <LogOut className="w-4 h-4" /> <span className="hidden sm:inline">Déconnexion</span>
+              </button>
+            </div>
           </div>
         </header>
 
@@ -319,7 +332,13 @@ export default function UserPortal() {
     <div className="min-h-screen bg-[#f5f5f7] text-[#1d1d1f] font-sans selection:bg-[#0071e3] selection:text-white pb-32">
       <header className="bg-white/70 backdrop-blur-md sticky top-0 z-50 border-b border-[#d2d2d7]/50">
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
-          <img src="/images/AVI_Logo_Black.png" alt="AudioVitality" className="h-6 md:h-8 object-contain" />
+          <div className="flex items-center gap-6">
+            <img src="/images/AVI_Logo_Black.png" alt="AudioVitality" className="h-6 md:h-8 object-contain" />
+            <div className="hidden sm:flex items-center gap-1 bg-[#f5f5f7] p-1 rounded-full">
+              <span className="px-4 py-1.5 bg-white text-[#1d1d1f] rounded-full text-sm font-medium shadow-sm">Mon Espace</span>
+              <Link to="/admin" className="px-4 py-1.5 text-[#86868b] hover:text-[#1d1d1f] rounded-full text-sm font-medium transition-colors">Administration</Link>
+            </div>
+          </div>
           <div className="flex items-center gap-4">
             <div className="hidden sm:flex items-center gap-2 text-sm font-medium text-[#1d1d1f] bg-[#f5f5f7] px-4 py-1.5 rounded-full">
               <User className="w-4 h-4 text-[#0071e3]" />

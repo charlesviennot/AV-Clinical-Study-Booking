@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
-import { collection, getDocs, deleteDoc, doc, setDoc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../lib/firebase';
-import { CalendarDays, LogOut, Trash2, Loader2, Users, Settings, X, Plus, Info, Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
-import { cn, getUpcomingWeeks, DEFAULT_TIMESLOTS } from '../lib/utils';
+import { onAuthStateChanged, signOut, signInWithPopup } from 'firebase/auth';
+import { collection, getDocs, deleteDoc, doc, setDoc } from 'firebase/firestore';
+import { auth, db, googleProvider } from '../lib/firebase';
+import { CalendarDays, LogOut, Trash2, Loader2, Users, Settings, X, Plus, Info, Calendar as CalendarIcon } from 'lucide-react';
+import { Link, Navigate } from 'react-router-dom';
 
 const WEEKS = getUpcomingWeeks(8); // Show 8 weeks for admin
 
 export default function AdminDashboard() {
   const [user, setUser] = useState<any>(null);
-  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [loginError, setLoginError] = useState('');
+  const [isAdminUnlocked, setIsAdminUnlocked] = useState(() => sessionStorage.getItem('adminUnlocked') === 'true');
   
   const [activeTab, setActiveTab] = useState<'bookings' | 'calendar' | 'settings'>('bookings');
   
@@ -26,13 +26,16 @@ export default function AdminDashboard() {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setLoadingAuth(false);
-      if (currentUser) {
-        fetchBookings();
-        fetchWeekConfigs();
-      }
     });
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (user && isAdminUnlocked) {
+      fetchBookings();
+      fetchWeekConfigs();
+    }
+  }, [user, isAdminUnlocked]);
 
   const fetchBookings = async () => {
     setLoadingData(true);
@@ -61,17 +64,30 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleGoogleLogin = async () => {
     setLoginError('');
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-    } catch (error: any) {
-      setLoginError("Identifiants incorrects.");
+      await signInWithPopup(auth, googleProvider);
+    } catch (error) {
+      console.error("Error signing in with Google:", error);
+      setLoginError("Erreur lors de la connexion avec Google.");
+    }
+  };
+
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError('');
+    if (password === 'admin_av_booking') {
+      sessionStorage.setItem('adminUnlocked', 'true');
+      setIsAdminUnlocked(true);
+    } else {
+      setLoginError("Mot de passe incorrect.");
     }
   };
 
   const handleLogout = () => {
+    sessionStorage.removeItem('adminUnlocked');
+    setIsAdminUnlocked(false);
     signOut(auth);
   };
 
@@ -89,7 +105,7 @@ export default function AdminDashboard() {
   const handleAddSlot = async (weekId: string, newSlot: string) => {
     if (!newSlot.trim()) return;
     const currentSlots = weekConfigs[weekId] || DEFAULT_TIMESLOTS;
-    if (currentSlots.includes(newSlot.trim())) return; // Prevent duplicates
+    if (currentSlots.includes(newSlot.trim())) return;
     
     const updatedSlots = [...currentSlots, newSlot.trim()].sort();
     
@@ -138,49 +154,76 @@ export default function AdminDashboard() {
   }
 
   if (!user) {
-    return (
-      <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center p-4 font-sans">
-        <div className="max-w-md w-full bg-white rounded-[2rem] p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-          <div className="text-center mb-8">
-            <img src="/images/AVI_Logo_Black.png" alt="AudioVitality" className="h-8 mx-auto mb-6" />
-            <h1 className="text-2xl font-semibold tracking-tight">Espace Administrateur</h1>
-          </div>
-          
-          {loginError && (
-            <div className="bg-[#fff0f0] text-[#ff3b30] p-4 rounded-xl mb-6 text-sm">
-              {loginError}
-            </div>
-          )}
+    return <Navigate to="/" replace />;
+  }
 
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-[#1d1d1f] mb-2">Email</label>
-              <input 
-                type="email" 
-                required
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                className="w-full bg-[#f5f5f7] border border-transparent rounded-xl py-3 px-4 text-[#1d1d1f] focus:outline-none focus:border-[#0071e3] focus:ring-1 focus:ring-[#0071e3] focus:bg-white transition-all"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-[#1d1d1f] mb-2">Mot de passe</label>
-              <input 
-                type="password" 
-                required
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                className="w-full bg-[#f5f5f7] border border-transparent rounded-xl py-3 px-4 text-[#1d1d1f] focus:outline-none focus:border-[#0071e3] focus:ring-1 focus:ring-[#0071e3] focus:bg-white transition-all"
-              />
-            </div>
-            <button 
-              type="submit"
-              className="w-full py-3.5 mt-4 bg-[#1d1d1f] text-white rounded-xl font-medium hover:bg-black transition-colors"
-            >
-              Se connecter
-            </button>
-          </form>
+  const Header = () => (
+    <header className="bg-white/70 backdrop-blur-md sticky top-0 z-50 border-b border-[#d2d2d7]/50">
+      <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-6">
+          <img src="/images/AVI_Logo_Black.png" alt="AudioVitality" className="h-6 md:h-8 object-contain" />
+          <div className="hidden sm:flex items-center gap-1 bg-[#f5f5f7] p-1 rounded-full">
+            <Link to="/" className="px-4 py-1.5 text-[#86868b] hover:text-[#1d1d1f] rounded-full text-sm font-medium transition-colors">Mon Espace</Link>
+            <span className="px-4 py-1.5 bg-white text-[#1d1d1f] rounded-full text-sm font-medium shadow-sm">Administration</span>
+          </div>
         </div>
+        <div className="flex items-center gap-4">
+          <div className="hidden sm:flex items-center gap-2 text-sm font-medium text-[#1d1d1f] bg-[#f5f5f7] px-4 py-1.5 rounded-full">
+            <Users className="w-4 h-4 text-[#0071e3]" />
+            {user.displayName || user.email}
+          </div>
+          <button 
+            onClick={handleLogout}
+            className="flex items-center gap-2 text-sm font-medium text-[#86868b] hover:text-[#1d1d1f] transition-colors"
+          >
+            <LogOut className="w-4 h-4" />
+            <span className="hidden sm:inline">Déconnexion</span>
+          </button>
+        </div>
+      </div>
+    </header>
+  );
+
+  if (user && !isAdminUnlocked) {
+    return (
+      <div className="min-h-screen bg-[#f5f5f7] text-[#1d1d1f] font-sans pb-32">
+        <Header />
+        <main className="max-w-md mx-auto px-4 py-20">
+          <div className="bg-white rounded-[2rem] p-10 text-center shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+            <div className="w-16 h-16 bg-[#f5f5f7] rounded-full flex items-center justify-center mx-auto mb-6">
+              <Settings className="w-8 h-8 text-[#1d1d1f]" />
+            </div>
+            <h1 className="text-2xl font-semibold tracking-tight mb-2">Accès Sécurisé</h1>
+            <p className="text-[#86868b] mb-8 text-sm">
+              Veuillez saisir le mot de passe pour accéder à l'administration.
+            </p>
+            
+            {loginError && (
+              <div className="bg-[#fff0f0] text-[#ff3b30] p-4 rounded-xl mb-6 text-sm">
+                {loginError}
+              </div>
+            )}
+
+            <form onSubmit={handlePasswordSubmit} className="space-y-4">
+              <div>
+                <input 
+                  type="password" 
+                  required
+                  placeholder="Mot de passe administrateur"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  className="w-full bg-[#f5f5f7] border border-transparent rounded-xl py-3.5 px-4 text-[#1d1d1f] focus:outline-none focus:border-[#0071e3] focus:ring-1 focus:ring-[#0071e3] focus:bg-white transition-all text-center"
+                />
+              </div>
+              <button 
+                type="submit"
+                className="w-full py-3.5 mt-4 bg-[#1d1d1f] text-white rounded-xl font-medium hover:bg-black transition-colors"
+              >
+                Déverrouiller
+              </button>
+            </form>
+          </div>
+        </main>
       </div>
     );
   }
@@ -194,21 +237,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-[#f5f5f7] text-[#1d1d1f] font-sans pb-32">
-      <header className="bg-white/70 backdrop-blur-md sticky top-0 z-50 border-b border-[#d2d2d7]/50">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <img src="/images/AVI_Logo_Black.png" alt="AudioVitality" className="h-6 object-contain" />
-            <span className="hidden sm:inline-block px-3 py-1 bg-[#f5f5f7] text-xs font-medium rounded-full text-[#86868b]">Admin</span>
-          </div>
-          <button 
-            onClick={handleLogout}
-            className="flex items-center gap-2 text-sm font-medium text-[#86868b] hover:text-[#1d1d1f] transition-colors"
-          >
-            <LogOut className="w-4 h-4" />
-            Déconnexion
-          </button>
-        </div>
-      </header>
+      <Header />
 
       <main className="max-w-6xl mx-auto px-4 py-10">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8">
@@ -345,7 +374,6 @@ export default function AdminDashboard() {
                         {time}
                       </td>
                       {['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'].map(day => {
-                        // Find booking for this specific cell
                         const cellBooking = bookings.find(b => 
                           b.week === selectedCalendarWeek && 
                           b.slots && b.slots[day] === time
