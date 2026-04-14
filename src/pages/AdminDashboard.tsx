@@ -4,6 +4,7 @@ import { collection, getDocs, deleteDoc, doc, setDoc } from 'firebase/firestore'
 import { auth, db, googleProvider } from '../lib/firebase';
 import { CalendarDays, LogOut, Trash2, Loader2, Users, Settings, X, Plus, Info, Calendar as CalendarIcon } from 'lucide-react';
 import { Link, Navigate } from 'react-router-dom';
+import { cn, getUpcomingWeeks, DEFAULT_TIMESLOTS } from '../lib/utils';
 
 const WEEKS = getUpcomingWeeks(8); // Show 8 weeks for admin
 
