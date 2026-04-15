@@ -4,7 +4,7 @@ import { collection, getDocs, deleteDoc, doc, setDoc } from 'firebase/firestore'
 import { auth, db, googleProvider } from '../lib/firebase';
 import { CalendarDays, LogOut, Trash2, Loader2, Users, Settings, X, Plus, Info, Calendar as CalendarIcon, ExternalLink, Database } from 'lucide-react';
 import { Link, Navigate } from 'react-router-dom';
-import { cn, generateWeekData, DAYS, DEFAULT_TIMESLOTS } from '../lib/utils';
+import { cn, generateWeekData, DAYS, DEFAULT_TIMESLOTS, sortTimeSlots } from '../lib/utils';
 
 export default function AdminDashboard() {
   const [user, setUser] = useState<any>(null);
@@ -173,7 +173,7 @@ export default function AdminDashboard() {
     const currentSlots = week.slotsByDay?.[day] || [];
     if (currentSlots.includes(newSlot.trim())) return;
     
-    const updatedSlots = [...currentSlots, newSlot.trim()].sort();
+    const updatedSlots = sortTimeSlots([...currentSlots, newSlot.trim()]);
     const updatedSlotsByDay = { ...week.slotsByDay, [day]: updatedSlots };
     
     try {
@@ -460,7 +460,7 @@ export default function AdminDashboard() {
                         slots.forEach((s: string) => allSlotsSet.add(s));
                       });
                     }
-                    const uniqueSlots = Array.from(allSlotsSet).sort();
+                    const uniqueSlots = sortTimeSlots(Array.from(allSlotsSet));
 
                     return uniqueSlots.map((time, idx) => (
                       <tr key={time} className={idx % 2 === 0 ? 'bg-white' : 'bg-[#fafafa]'}>

@@ -15,6 +15,20 @@ export const DEFAULT_TIMESLOTS = [
 
 export const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'];
 
+// Helper to sort timeslots logically (e.g., "09h00 - 10h30" before "17h30 - 19h00")
+export const sortTimeSlots = (slots: string[]) => {
+  return [...slots].sort((a, b) => {
+    const extractTime = (str: string) => {
+      const match = str.match(/(\d{1,2})[h:]?(\d{2})?/i);
+      if (!match) return 0;
+      const hours = parseInt(match[1], 10);
+      const minutes = match[2] ? parseInt(match[2], 10) : 0;
+      return hours * 60 + minutes;
+    };
+    return extractTime(a) - extractTime(b);
+  });
+};
+
 export const generateWeekData = (date: Date) => {
   const d = new Date(date);
   const day = d.getDay();

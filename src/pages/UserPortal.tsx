@@ -5,6 +5,7 @@ import { auth, db, googleProvider } from '../lib/firebase';
 import { CalendarDays, Clock, ChevronRight, User, Mail, Phone, Info, Loader2, LogOut, Edit, Trash2, CheckCircle2, MapPin, AlertTriangle, ChevronDown, Sparkles, X, ExternalLink } from 'lucide-react';
 import { cn, DEFAULT_TIMESLOTS } from '../lib/utils';
 import { Link } from 'react-router-dom';
+import emailjs from '@emailjs/browser';
 
 type GroupType = 'LUNDI' | 'MARDI' | null;
 
@@ -290,6 +291,29 @@ export default function UserPortal() {
           ...bookingData,
           createdAt: Date.now(),
         });
+        
+        // Send email notification via EmailJS
+        try {
+          const templateParams = {
+            user_name: userInfo.name,
+            user_email: userInfo.email,
+            user_phone: finalPhone,
+            week: studyWeeks.find(w => w.id === selectedWeek)?.label || selectedWeek,
+            group: selectedGroup ? GROUPS[selectedGroup].name : '',
+            slots: Object.entries(selectedSlots).map(([day, time]) => `${day}: ${time}`).join('\n')
+          };
+          
+          await emailjs.send(
+            'service_wryfuxb',
+            'template_m668zhj',
+            templateParams,
+            'ihwK7B1x0glg20I-i'
+          );
+        } catch (emailError) {
+          console.error("Error sending email notification:", emailError);
+          // We don't alert the user here so it doesn't block their booking confirmation
+        }
+
         alert("Réservation confirmée avec succès !");
       }
       
