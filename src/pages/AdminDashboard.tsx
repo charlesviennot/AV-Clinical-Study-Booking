@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, signOut, signInWithPopup } from 'firebase/auth';
 import { collection, getDocs, deleteDoc, doc, setDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../lib/firebase';
-import { CalendarDays, LogOut, Trash2, Loader2, Users, Settings, X, Plus, Info, Calendar as CalendarIcon, ExternalLink, Database, Activity } from 'lucide-react';
+import { CalendarDays, LogOut, Trash2, Loader2, Users, Settings, X, Plus, Info, Calendar as CalendarIcon, ExternalLink, Database, Activity, Edit2, Check } from 'lucide-react';
 import { Link, Navigate } from 'react-router-dom';
 import { cn, generateWeekData, DAYS, DEFAULT_TIMESLOTS, sortTimeSlots, getFormattedDateForDay } from '../lib/utils';
 
@@ -20,6 +20,29 @@ export default function AdminDashboard() {
   
   const [studyWeeks, setStudyWeeks] = useState<any[]>([]);
   const [selectedCalendarWeek, setSelectedCalendarWeek] = useState<string>('');
+
+  const [editingBookingId, setEditingBookingId] = useState<string | null>(null);
+  const [editSlots, setEditSlots] = useState<{ [day: string]: string }>({});
+  const [savingBooking, setSavingBooking] = useState(false);
+
+  const handleEditBookingClick = (bookingId: string, currentSlots: any) => {
+    setEditingBookingId(bookingId);
+    setEditSlots({ ...currentSlots });
+  };
+
+  const handleSaveBookingSlots = async (bookingId: string) => {
+    setSavingBooking(true);
+    try {
+      await setDoc(doc(db, 'bookings', bookingId), { slots: editSlots }, { merge: true });
+      setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, slots: editSlots } : b));
+      setEditingBookingId(null);
+    } catch (error) {
+      console.error("Error saving booking slots:", error);
+      alert("Erreur lors de la mise à jour du créneau.");
+    } finally {
+      setSavingBooking(false);
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -216,52 +239,52 @@ export default function AdminDashboard() {
 
   const Header = () => (
     <header className="bg-white/70 backdrop-blur-md sticky top-0 z-50 border-b border-[#d2d2d7]/50">
-      <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-6">
+      <div className="max-w-[90rem] mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-4 lg:gap-6">
           <img src="/images/AVI_Logo_Black.png" alt="AudioVitality" className="h-6 md:h-8 object-contain" />
           <div className="hidden sm:flex items-center gap-1 bg-[#f5f5f7] p-1 rounded-full">
-            <Link to="/" className="px-4 py-1.5 text-[#86868b] hover:text-[#1d1d1f] rounded-full text-sm font-medium transition-colors">Mon Espace</Link>
-            <span className="px-4 py-1.5 bg-white text-[#1d1d1f] rounded-full text-sm font-medium shadow-sm">Administration</span>
+            <Link to="/" className="px-4 py-1.5 text-[#86868b] hover:text-[#1d1d1f] rounded-full text-sm font-medium transition-colors whitespace-nowrap">Mon Espace</Link>
+            <span className="px-4 py-1.5 bg-white text-[#1d1d1f] rounded-full text-sm font-medium shadow-sm whitespace-nowrap">Administration</span>
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-3 lg:gap-4">
           {isAdminUnlocked && (
-            <div className="hidden lg:flex items-center gap-3 mr-4 border-r border-[#d2d2d7] pr-4">
+            <div className="flex flex-wrap items-center gap-2 lg:gap-3 mr-0 lg:mr-2 border-[#d2d2d7] xl:pr-4 xl:border-r">
               <a 
                 href="https://pro.onedoc.ch/calendar" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-sm font-medium text-[#0071e3] hover:bg-[#f5f9ff] px-3 py-1.5 rounded-full transition-colors"
+                className="flex items-center gap-1.5 text-sm font-medium text-[#0071e3] hover:bg-[#f5f9ff] px-3 py-1.5 rounded-full transition-colors whitespace-nowrap"
               >
-                <CalendarIcon className="w-4 h-4" />
-                OneDoc
-                <ExternalLink className="w-3 h-3" />
+                <CalendarIcon className="w-4 h-4 shrink-0" />
+                <span className="hidden xl:inline">OneDoc</span>
+                <ExternalLink className="w-3 h-3 shrink-0" />
               </a>
               <a 
                 href="https://proto-tracker.vercel.app" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-sm font-medium text-[#0071e3] hover:bg-[#f5f9ff] px-3 py-1.5 rounded-full transition-colors"
+                className="flex items-center gap-1.5 text-sm font-medium text-[#0071e3] hover:bg-[#f5f9ff] px-3 py-1.5 rounded-full transition-colors whitespace-nowrap"
               >
-                <Database className="w-4 h-4" />
-                Data Tracker
-                <ExternalLink className="w-3 h-3" />
+                <Database className="w-4 h-4 shrink-0" />
+                <span className="hidden xl:inline">Data Tracker</span>
+                <ExternalLink className="w-3 h-3 shrink-0" />
               </a>
               <a 
                 href="https://www.biodymanager.com/#/app/faq-manager/list" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-sm font-medium text-[#0071e3] hover:bg-[#f5f9ff] px-3 py-1.5 rounded-full transition-colors"
+                className="flex items-center gap-1.5 text-sm font-medium text-[#0071e3] hover:bg-[#f5f9ff] px-3 py-1.5 rounded-full transition-colors whitespace-nowrap"
               >
-                <Activity className="w-4 h-4" />
-                BiodyManager
-                <ExternalLink className="w-3 h-3" />
+                <Activity className="w-4 h-4 shrink-0" />
+                <span className="hidden xl:inline">BiodyManager</span>
+                <ExternalLink className="w-3 h-3 shrink-0" />
               </a>
             </div>
           )}
-          <div className="hidden sm:flex items-center gap-2 text-sm font-medium text-[#1d1d1f] bg-[#f5f5f7] px-4 py-1.5 rounded-full">
-            <Users className="w-4 h-4 text-[#0071e3]" />
-            {user.displayName || user.email}
+          <div className="hidden sm:flex items-center gap-2 text-sm font-medium text-[#1d1d1f] bg-[#f5f5f7] px-4 py-1.5 rounded-full whitespace-nowrap">
+            <Users className="w-4 h-4 text-[#0071e3] shrink-0" />
+            <span className="max-w-[100px] xl:max-w-none truncate">{user.displayName || user.email}</span>
           </div>
           <button 
             onClick={handleLogout}
@@ -405,15 +428,45 @@ export default function AdminDashboard() {
                           </div>
                           <div className="md:w-1/2">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              {booking.slots && Object.entries(booking.slots).map(([day, time]) => (
-                                <div key={day} className="bg-[#f5f5f7] px-3 py-2 rounded-lg text-sm">
+                              {booking.slots && Object.keys(booking.slots).map(day => (
+                                <div key={day} className="bg-[#f5f5f7] px-3 py-2 rounded-lg text-sm flex flex-col justify-center">
                                   <span className="font-medium">{day}</span>
-                                  <span className="text-[#86868b] ml-2">{time as string}</span>
+                                  {editingBookingId === booking.id ? (
+                                    <select 
+                                      value={editSlots[day] || booking.slots[day]}
+                                      onChange={(e) => setEditSlots({...editSlots, [day]: e.target.value})}
+                                      className="mt-1 bg-white border border-[#d2d2d7] rounded px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-[#0071e3]"
+                                    >
+                                      {studyWeeks.find(w => w.id === booking.week)?.slotsByDay?.[day]?.map((slot: string) => (
+                                        <option key={slot} value={slot}>{slot}</option>
+                                      )) || <option value={booking.slots[day]}>{booking.slots[day]}</option>}
+                                    </select>
+                                  ) : (
+                                    <span className="text-[#86868b]">{booking.slots[day]}</span>
+                                  )}
                                 </div>
                               ))}
                             </div>
                           </div>
-                          <div className="md:w-1/6 flex items-center justify-end">
+                          <div className="md:w-1/6 flex items-center justify-end gap-2">
+                            {editingBookingId === booking.id ? (
+                              <button 
+                                onClick={() => handleSaveBookingSlots(booking.id)}
+                                disabled={savingBooking}
+                                className="p-2 text-[#34A853] hover:bg-[#e6f4ea] rounded-lg transition-colors"
+                                title="Sauvegarder"
+                              >
+                                {savingBooking ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
+                              </button>
+                            ) : (
+                              <button 
+                                onClick={() => handleEditBookingClick(booking.id, booking.slots)}
+                                className="p-2 text-[#86868b] hover:bg-[#f5f5f7] rounded-lg transition-colors"
+                                title="Modifier"
+                              >
+                                <Edit2 className="w-5 h-5" />
+                              </button>
+                            )}
                             <button 
                               onClick={() => handleDeleteBooking(booking.id)}
                               className="p-2 text-[#ff3b30] hover:bg-[#fff0f0] rounded-lg transition-colors"
