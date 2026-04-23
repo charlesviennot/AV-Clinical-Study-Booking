@@ -15,6 +15,14 @@ export const DEFAULT_TIMESLOTS = [
 
 export const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'];
 
+export const getFormattedDateForDay = (startDate: number, dayName: string) => {
+  const dayIndex = DAYS.indexOf(dayName);
+  if (dayIndex === -1) return '';
+  const date = new Date(startDate);
+  date.setDate(date.getDate() + dayIndex);
+  return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+};
+
 // Helper to sort timeslots logically (e.g., "09h00 - 10h30" before "17h30 - 19h00")
 export const sortTimeSlots = (slots: string[]) => {
   return [...slots].sort((a, b) => {

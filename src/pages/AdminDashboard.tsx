@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, signOut, signInWithPopup } from 'firebase/auth';
 import { collection, getDocs, deleteDoc, doc, setDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../lib/firebase';
-import { CalendarDays, LogOut, Trash2, Loader2, Users, Settings, X, Plus, Info, Calendar as CalendarIcon, ExternalLink, Database } from 'lucide-react';
+import { CalendarDays, LogOut, Trash2, Loader2, Users, Settings, X, Plus, Info, Calendar as CalendarIcon, ExternalLink, Database, Activity } from 'lucide-react';
 import { Link, Navigate } from 'react-router-dom';
-import { cn, generateWeekData, DAYS, DEFAULT_TIMESLOTS, sortTimeSlots } from '../lib/utils';
+import { cn, generateWeekData, DAYS, DEFAULT_TIMESLOTS, sortTimeSlots, getFormattedDateForDay } from '../lib/utils';
 
 export default function AdminDashboard() {
   const [user, setUser] = useState<any>(null);
@@ -247,6 +247,16 @@ export default function AdminDashboard() {
                 Data Tracker
                 <ExternalLink className="w-3 h-3" />
               </a>
+              <a 
+                href="https://www.biodymanager.com/#/app/faq-manager/list" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-sm font-medium text-[#0071e3] hover:bg-[#f5f9ff] px-3 py-1.5 rounded-full transition-colors"
+              >
+                <Activity className="w-4 h-4" />
+                BiodyManager
+                <ExternalLink className="w-3 h-3" />
+              </a>
             </div>
           )}
           <div className="hidden sm:flex items-center gap-2 text-sm font-medium text-[#1d1d1f] bg-[#f5f5f7] px-4 py-1.5 rounded-full">
@@ -444,11 +454,16 @@ export default function AdminDashboard() {
                 <thead>
                   <tr>
                     <th className="p-4 border-b border-r border-[#d2d2d7]/50 bg-[#f5f5f7] w-32 font-semibold text-sm text-[#86868b] text-center">Horaires</th>
-                    {DAYS.map(day => (
-                      <th key={day} className="p-4 border-b border-[#d2d2d7]/50 bg-[#f5f5f7] font-semibold text-[#1d1d1f] text-center w-1/5">
-                        {day}
-                      </th>
-                    ))}
+                    {DAYS.map(day => {
+                      const selectedWeekObj = studyWeeks.find(w => w.id === selectedCalendarWeek);
+                      const dayDate = selectedWeekObj ? getFormattedDateForDay(selectedWeekObj.startDate, day) : '';
+                      return (
+                        <th key={day} className="p-4 border-b border-[#d2d2d7]/50 bg-[#f5f5f7] text-center w-1/5">
+                          <div className="font-semibold text-[#1d1d1f]">{day}</div>
+                          {dayDate && <div className="text-xs font-normal text-[#86868b] mt-0.5">{dayDate}</div>}
+                        </th>
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody>
@@ -474,12 +489,37 @@ export default function AdminDashboard() {
                             b.slots && b.slots[day] === time
                           );
 
+                          const isTechnoSession = cellBooking && (
+                            (cellBooking.group === 'LUNDI' && day === 'Mercredi') || 
+                            (cellBooking.group === 'MARDI' && day === 'Jeudi')
+                          );
+
                           return (
                             <td key={day} className="p-3 border-b border-[#d2d2d7]/30 relative h-24">
                               {cellBooking ? (
-                                <div className="absolute inset-2 bg-[#f5f9ff] border border-[#0071e3]/20 rounded-xl p-3 flex flex-col justify-center overflow-hidden">
-                                  <div className="font-semibold text-sm text-[#0071e3] truncate">{cellBooking.userInfo?.name}</div>
-                                  <div className="text-xs text-[#86868b] truncate mt-0.5">{cellBooking.userInfo?.phone}</div>
+                                <div className={cn(
+                                  "absolute inset-2 border rounded-xl p-3 flex flex-col justify-center overflow-hidden",
+                                  isTechnoSession 
+                                    ? "bg-[#fdf4ff] border-[#c026d3]/20" 
+                                    : "bg-[#f5f9ff] border-[#0071e3]/20"
+                                )}>
+                                  <div className={cn(
+                                    "font-semibold text-sm truncate",
+                                    isTechnoSession ? "text-[#c026d3]" : "text-[#0071e3]"
+                                  )}>
+                                    {cellBooking.userInfo?.name}
+                                  </div>
+                                  <div className={cn(
+                                    "text-xs truncate mt-0.5",
+                                    isTechnoSession ? "text-[#c026d3]/70" : "text-[#86868b]"
+                                  )}>
+                                    {cellBooking.userInfo?.phone}
+                                  </div>
+                                  {isTechnoSession && (
+                                    <div className="text-[10px] font-bold tracking-widest uppercase text-[#c026d3]/60 mt-1">
+                                      Session Techno
+                                    </div>
+                                  )}
                                 </div>
                               ) : isSlotAvailableForDay ? (
                                 <div className="absolute inset-2 border-2 border-dashed border-[#d2d2d7]/50 rounded-xl flex items-center justify-center">

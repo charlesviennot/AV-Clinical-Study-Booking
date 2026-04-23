@@ -3,7 +3,7 @@ import { signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth';
 import { collection, query, where, getDocs, addDoc, updateDoc, doc, deleteDoc, getDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../lib/firebase';
 import { CalendarDays, Clock, ChevronRight, User, Mail, Phone, Info, Loader2, LogOut, Edit, Trash2, CheckCircle2, MapPin, AlertTriangle, ChevronDown, Sparkles, X, ExternalLink } from 'lucide-react';
-import { cn, DEFAULT_TIMESLOTS } from '../lib/utils';
+import { cn, DEFAULT_TIMESLOTS, getFormattedDateForDay } from '../lib/utils';
 import { Link } from 'react-router-dom';
 import emailjs from '@emailjs/browser';
 
@@ -702,6 +702,7 @@ export default function UserPortal() {
                 {GROUPS[selectedGroup].days.map((day, index) => {
                   const currentWeekData = studyWeeks.find(w => w.id === selectedWeek);
                   const availableSlotsForDay = currentWeekData?.slotsByDay?.[day] || [];
+                  const dayDate = currentWeekData ? getFormattedDateForDay(currentWeekData.startDate, day) : '';
 
                   return (
                     <div key={day} className={cn(
@@ -709,9 +710,10 @@ export default function UserPortal() {
                       index !== GROUPS[selectedGroup].days.length - 1 && "border-b border-[#d2d2d7]"
                     )}>
                       <div className="flex flex-col md:flex-row md:items-center gap-6 md:gap-12">
-                        <div className="w-32 shrink-0">
+                        <div className="w-40 shrink-0">
                           <div className="text-[#1d1d1f] font-semibold text-xl">{day}</div>
-                          <div className="text-sm text-[#86868b] mt-1">Séance {index + 1}</div>
+                          {dayDate && <div className="text-sm font-normal text-[#86868b] mt-0.5">{dayDate}</div>}
+                          <div className="text-sm text-[#0071e3] font-medium mt-1">Séance {index + 1}</div>
                         </div>
                         <div className="flex flex-wrap gap-3 flex-1">
                           {availableSlotsForDay.length === 0 ? (
