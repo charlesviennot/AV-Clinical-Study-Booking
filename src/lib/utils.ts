@@ -88,6 +88,48 @@ export const generateIcsContent = (title: string, startDateTs: number, durationM
   return icsLines.join('\r\n');
 };
 
+export interface IcsEvent {
+  title: string;
+  startDateTs: number;
+  durationMinutes?: number;
+  details?: string;
+  location?: string;
+}
+
+export const generateMultiEventIcsContent = (events: IcsEvent[]) => {
+  const formatIcsDate = (date: Date) => {
+    return date.toISOString().replace(/-|:|\.\d\d\d/g, '');
+  };
+
+  const dtStamp = formatIcsDate(new Date());
+
+  const icsLines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//AudioVitality//NONSGML v1.0//EN'
+  ];
+
+  events.forEach(event => {
+    const start = new Date(event.startDateTs);
+    const end = new Date(event.startDateTs + (event.durationMinutes || 90) * 60000);
+    
+    icsLines.push(
+      'BEGIN:VEVENT',
+      `DTSTAMP:${dtStamp}`,
+      `DTSTART:${formatIcsDate(start)}`,
+      `DTEND:${formatIcsDate(end)}`,
+      `SUMMARY:${event.title}`,
+      `DESCRIPTION:${(event.details || '').replace(/\n/g, '\\n')}`,
+      `LOCATION:${event.location || 'AudioVitality'}`,
+      'END:VEVENT'
+    );
+  });
+
+  icsLines.push('END:VCALENDAR');
+
+  return icsLines.join('\r\n');
+};
+
 export const downloadIcsFile = (content: string, filename: string) => {
   const blob = new Blob([content], { type: 'text/calendar;charset=utf-8' });
   const link = document.createElement('a');

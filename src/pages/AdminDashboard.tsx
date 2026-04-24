@@ -4,7 +4,7 @@ import { collection, getDocs, deleteDoc, doc, setDoc } from 'firebase/firestore'
 import { auth, db, googleProvider } from '../lib/firebase';
 import { CalendarDays, LogOut, Trash2, Loader2, Users, Settings, X, Plus, Info, Calendar as CalendarIcon, ExternalLink, Database, Activity, Edit2, Check, CalendarPlus, Download } from 'lucide-react';
 import { Link, Navigate } from 'react-router-dom';
-import { cn, generateWeekData, DAYS, DEFAULT_TIMESLOTS, sortTimeSlots, getFormattedDateForDay, generateGoogleCalendarLink, generateIcsContent, downloadIcsFile } from '../lib/utils';
+import { cn, generateWeekData, DAYS, DEFAULT_TIMESLOTS, sortTimeSlots, getFormattedDateForDay, generateGoogleCalendarLink, generateIcsContent, downloadIcsFile, generateMultiEventIcsContent } from '../lib/utils';
 
 export default function AdminDashboard() {
   const [user, setUser] = useState<any>(null);
@@ -454,30 +454,12 @@ export default function AdminDashboard() {
                                   "AudioVitality"
                                 );
 
-                                const handleDownloadIcs = () => {
-                                  const content = generateIcsContent(
-                                    `Étude AudioVitality - ${booking.userInfo?.name}`,
-                                    startDateTs,
-                                    90,
-                                    `Participant: ${booking.userInfo?.name}\\nEmail: ${booking.userInfo?.email}\\nTél: ${booking.userInfo?.phone}\\nGroupe: ${booking.group}`,
-                                    "AudioVitality"
-                                  );
-                                  downloadIcsFile(content, `audiovitality-seance-${day.toLowerCase()}.ics`);
-                                };
-
                                 return (
                                 <div key={day} className="bg-[#f5f5f7] px-3 py-2 rounded-lg text-sm flex flex-col justify-center relative group">
                                   <div className="flex justify-between items-start">
                                     <span className="font-medium">{day} {dayDateStr && <span className="text-xs font-normal text-[#86868b]">({dayDateStr})</span>}</span>
                                     {!editingBookingId && (
                                       <div className="flex gap-1">
-                                        <button 
-                                          onClick={handleDownloadIcs}
-                                          title="Ajouter au calendrier Apple/Outlook"
-                                          className="text-[#0071e3] opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-[#e8f2fc] rounded"
-                                        >
-                                          <Download className="w-4 h-4" />
-                                        </button>
                                         <a 
                                           href={gcalLink}
                                           target="_blank"
@@ -509,6 +491,45 @@ export default function AdminDashboard() {
                             </div>
                           </div>
                           <div className="md:w-1/6 flex items-center justify-end gap-2">
+                            {!editingBookingId && (
+                              <button 
+                                onClick={() => {
+                                  const events: any[] = [];
+                                  const currentWeekData = studyWeeks.find(w => w.id === booking.week);
+                                  if (booking.slots && currentWeekData) {
+                                    Object.keys(booking.slots).forEach(day => {
+                                      let startDateTs = currentWeekData.startDate;
+                                      const dayIndex = DAYS.indexOf(day);
+                                      const d = new Date(currentWeekData.startDate);
+                                      d.setDate(d.getDate() + dayIndex);
+                                      
+                                      const timeSlot = booking.slots[day];
+                                      const match = timeSlot.match(/(\d{1,2})[h:]?(\d{2})?/i);
+                                      if (match) {
+                                        d.setHours(parseInt(match[1] || '0', 10), parseInt(match[2] || '0', 10), 0, 0);
+                                      }
+                                      startDateTs = d.getTime();
+
+                                      events.push({
+                                        title: `Étude AudioVitality - ${booking.userInfo?.name} (${day})`,
+                                        startDateTs,
+                                        durationMinutes: 90,
+                                        details: `Participant: ${booking.userInfo?.name}\\nEmail: ${booking.userInfo?.email}\\nTél: ${booking.userInfo?.phone}\\nGroupe: ${booking.group}`,
+                                        location: "AudioVitality"
+                                      });
+                                    });
+                                  }
+                                  if (events.length > 0) {
+                                    const content = generateMultiEventIcsContent(events);
+                                    downloadIcsFile(content, `audiovitality-${booking.userInfo?.name?.replace(/\s+/g, '-').toLowerCase()}-toutes-sessions.ics`);
+                                  }
+                                }}
+                                className="p-2 text-[#0071e3] hover:bg-[#e8f2fc] rounded-lg transition-colors"
+                                title="Télécharger toutes les sessions (Apple/Outlook)"
+                              >
+                                <Download className="w-5 h-5" />
+                              </button>
+                            )}
                             {editingBookingId === booking.id ? (
                               <button 
                                 onClick={() => handleSaveBookingSlots(booking.id)}
