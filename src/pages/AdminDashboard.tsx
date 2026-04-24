@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, signOut, signInWithPopup } from 'firebase/auth';
 import { collection, getDocs, deleteDoc, doc, setDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../lib/firebase';
-import { CalendarDays, LogOut, Trash2, Loader2, Users, Settings, X, Plus, Info, Calendar as CalendarIcon, ExternalLink, Database, Activity, Edit2, Check } from 'lucide-react';
+import { CalendarDays, LogOut, Trash2, Loader2, Users, Settings, X, Plus, Info, Calendar as CalendarIcon, ExternalLink, Database, Activity, Edit2, Check, CalendarPlus } from 'lucide-react';
 import { Link, Navigate } from 'react-router-dom';
-import { cn, generateWeekData, DAYS, DEFAULT_TIMESLOTS, sortTimeSlots, getFormattedDateForDay } from '../lib/utils';
+import { cn, generateWeekData, DAYS, DEFAULT_TIMESLOTS, sortTimeSlots, getFormattedDateForDay, generateGoogleCalendarLink } from '../lib/utils';
 
 export default function AdminDashboard() {
   const [user, setUser] = useState<any>(null);
@@ -428,9 +428,50 @@ export default function AdminDashboard() {
                           </div>
                           <div className="md:w-1/2">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              {booking.slots && Object.keys(booking.slots).map(day => (
-                                <div key={day} className="bg-[#f5f5f7] px-3 py-2 rounded-lg text-sm flex flex-col justify-center">
-                                  <span className="font-medium">{day}</span>
+                              {booking.slots && Object.keys(booking.slots).map(day => {
+                                const currentWeekData = studyWeeks.find(w => w.id === booking.week);
+                                const dayDateStr = currentWeekData ? getFormattedDateForDay(currentWeekData.startDate, day) : '';
+                                
+                                // Calculate timestamp for the start of the slot
+                                let startDateTs = currentWeekData?.startDate || Date.now();
+                                if (currentWeekData) {
+                                  const dayIndex = DAYS.indexOf(day);
+                                  const d = new Date(currentWeekData.startDate);
+                                  d.setDate(d.getDate() + dayIndex);
+                                  
+                                  // Parse time from slot (e.g. "09h00")
+                                  const timeSlot = booking.slots[day];
+                                  const match = timeSlot.match(/(\d{1,2})[h:]?(\d{2})?/i);
+                                  if (match) {
+                                    d.setHours(parseInt(match[1] || '0', 10), parseInt(match[2] || '0', 10), 0, 0);
+                                  }
+                                  startDateTs = d.getTime();
+                                }
+                                
+                                const gcalLink = generateGoogleCalendarLink(
+                                  `Étude AudioVitality - ${booking.userInfo?.name}`,
+                                  startDateTs,
+                                  90,
+                                  `Participant: ${booking.userInfo?.name}\nEmail: ${booking.userInfo?.email}\nTél: ${booking.userInfo?.phone}\nGroupe: ${booking.group}`,
+                                  "AudioVitality"
+                                );
+
+                                return (
+                                <div key={day} className="bg-[#f5f5f7] px-3 py-2 rounded-lg text-sm flex flex-col justify-center relative group">
+                                  <div className="flex justify-between items-start">
+                                    <span className="font-medium">{day} {dayDateStr && <span className="text-xs font-normal text-[#86868b]">({dayDateStr})</span>}</span>
+                                    {!editingBookingId && (
+                                      <a 
+                                        href={gcalLink}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        title="Ajouter au calendrier Google"
+                                        className="text-[#0071e3] opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-[#e8f2fc] rounded"
+                                      >
+                                        <CalendarPlus className="w-4 h-4" />
+                                      </a>
+                                    )}
+                                  </div>
                                   {editingBookingId === booking.id ? (
                                     <select 
                                       value={editSlots[day] || booking.slots[day]}
@@ -445,7 +486,8 @@ export default function AdminDashboard() {
                                     <span className="text-[#86868b]">{booking.slots[day]}</span>
                                   )}
                                 </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           </div>
                           <div className="md:w-1/6 flex items-center justify-end gap-2">

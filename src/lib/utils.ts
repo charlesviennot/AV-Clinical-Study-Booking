@@ -37,6 +37,27 @@ export const sortTimeSlots = (slots: string[]) => {
   });
 };
 
+export const generateGoogleCalendarLink = (title: string, startDateTs: number, durationMinutes: number = 90, details: string = "", location: string = "AudioVitality") => {
+  const start = new Date(startDateTs);
+  const end = new Date(startDateTs + durationMinutes * 60000);
+
+  const formatGoogleDate = (date: Date) => {
+    return date.toISOString().replace(/-|:|\.\d\d\d/g, '');
+  };
+
+  const dates = `${formatGoogleDate(start)}/${formatGoogleDate(end)}`;
+  const baseUrl = 'https://calendar.google.com/calendar/render?action=TEMPLATE';
+  
+  const params = new URLSearchParams({
+    text: title,
+    dates: dates,
+    details: details,
+    location: location,
+  });
+
+  return `${baseUrl}&${params.toString()}`;
+};
+
 export const generateWeekData = (date: Date) => {
   const d = new Date(date);
   const day = d.getDay();
