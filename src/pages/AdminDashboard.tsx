@@ -402,9 +402,51 @@ export default function AdminDashboard() {
                 <p className="text-[#86868b]">Les réservations apparaîtront ici.</p>
               </div>
             ) : (
-              <div className="space-y-10">
-                {Object.entries(groupedBookings).sort(([a], [b]) => a.localeCompare(b)).map(([week, weekBookings]: [string, any[]]) => {
-                  const weekLabel = studyWeeks.find(w => w.id === week)?.label || `Semaine du ${week}`;
+              <div className="space-y-6">
+                <div className="flex justify-end">
+                  <button 
+                    onClick={() => {
+                      const events: any[] = [];
+                      bookings.forEach(booking => {
+                        const currentWeekData = studyWeeks.find(w => w.id === booking.week);
+                        if (booking.slots && currentWeekData) {
+                          Object.keys(booking.slots).forEach(day => {
+                            let startDateTs = currentWeekData.startDate;
+                            const dayIndex = DAYS.indexOf(day);
+                            const d = new Date(currentWeekData.startDate);
+                            d.setDate(d.getDate() + dayIndex);
+                            
+                            const timeSlot = booking.slots[day];
+                            const match = timeSlot.match(/(\d{1,2})[h:]?(\d{2})?/i);
+                            if (match) {
+                              d.setHours(parseInt(match[1] || '0', 10), parseInt(match[2] || '0', 10), 0, 0);
+                            }
+                            startDateTs = d.getTime();
+
+                            events.push({
+                              title: `Étude AudioVitality - ${booking.userInfo?.name} (${day})`,
+                              startDateTs,
+                              durationMinutes: 90,
+                              details: `Participant: ${booking.userInfo?.name}\\nEmail: ${booking.userInfo?.email}\\nTél: ${booking.userInfo?.phone}\\nGroupe: ${booking.group}`,
+                              location: "AudioVitality"
+                            });
+                          });
+                        }
+                      });
+                      if (events.length > 0) {
+                        const content = generateMultiEventIcsContent(events);
+                        downloadIcsFile(content, `audiovitality-toutes-sessions.ics`);
+                      }
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#0071e3] text-white rounded-full text-sm font-medium hover:bg-[#0077ED] transition-colors shadow-sm"
+                  >
+                    <Download className="w-4 h-4" />
+                    Télécharger toutes les sessions (.ics)
+                  </button>
+                </div>
+                <div className="space-y-10">
+                  {Object.entries(groupedBookings).sort(([a], [b]) => a.localeCompare(b)).map(([week, weekBookings]: [string, any[]]) => {
+                    const weekLabel = studyWeeks.find(w => w.id === week)?.label || `Semaine du ${week}`;
                   return (
                     <div key={week} className="bg-white rounded-[2rem] overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.02)] border border-[#d2d2d7]/30">
                       <div className="bg-[#f5f5f7] px-6 py-4 border-b border-[#d2d2d7]/50">
@@ -563,6 +605,7 @@ export default function AdminDashboard() {
                 );
               })}
               </div>
+            </div>
             )}
           </>
         ) : activeTab === 'calendar' ? (
