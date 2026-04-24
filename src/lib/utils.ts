@@ -58,6 +58,46 @@ export const generateGoogleCalendarLink = (title: string, startDateTs: number, d
   return `${baseUrl}&${params.toString()}`;
 };
 
+export const generateIcsContent = (title: string, startDateTs: number, durationMinutes: number = 90, details: string = "", location: string = "AudioVitality") => {
+  const start = new Date(startDateTs);
+  const end = new Date(startDateTs + durationMinutes * 60000);
+
+  const formatIcsDate = (date: Date) => {
+    return date.toISOString().replace(/-|:|\.\d\d\d/g, '');
+  };
+
+  const dtStart = formatIcsDate(start);
+  const dtEnd = formatIcsDate(end);
+  const dtStamp = formatIcsDate(new Date());
+
+  const icsLines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//AudioVitality//NONSGML v1.0//EN',
+    'BEGIN:VEVENT',
+    `DTSTAMP:${dtStamp}`,
+    `DTSTART:${dtStart}`,
+    `DTEND:${dtEnd}`,
+    `SUMMARY:${title}`,
+    `DESCRIPTION:${details.replace(/\n/g, '\\n')}`,
+    `LOCATION:${location}`,
+    'END:VEVENT',
+    'END:VCALENDAR'
+  ];
+
+  return icsLines.join('\r\n');
+};
+
+export const downloadIcsFile = (content: string, filename: string) => {
+  const blob = new Blob([content], { type: 'text/calendar;charset=utf-8' });
+  const link = document.createElement('a');
+  link.href = window.URL.createObjectURL(blob);
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
 export const generateWeekData = (date: Date) => {
   const d = new Date(date);
   const day = d.getDay();

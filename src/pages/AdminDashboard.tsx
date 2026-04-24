@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, signOut, signInWithPopup } from 'firebase/auth';
 import { collection, getDocs, deleteDoc, doc, setDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../lib/firebase';
-import { CalendarDays, LogOut, Trash2, Loader2, Users, Settings, X, Plus, Info, Calendar as CalendarIcon, ExternalLink, Database, Activity, Edit2, Check, CalendarPlus } from 'lucide-react';
+import { CalendarDays, LogOut, Trash2, Loader2, Users, Settings, X, Plus, Info, Calendar as CalendarIcon, ExternalLink, Database, Activity, Edit2, Check, CalendarPlus, Download } from 'lucide-react';
 import { Link, Navigate } from 'react-router-dom';
-import { cn, generateWeekData, DAYS, DEFAULT_TIMESLOTS, sortTimeSlots, getFormattedDateForDay, generateGoogleCalendarLink } from '../lib/utils';
+import { cn, generateWeekData, DAYS, DEFAULT_TIMESLOTS, sortTimeSlots, getFormattedDateForDay, generateGoogleCalendarLink, generateIcsContent, downloadIcsFile } from '../lib/utils';
 
 export default function AdminDashboard() {
   const [user, setUser] = useState<any>(null);
@@ -254,11 +254,9 @@ export default function AdminDashboard() {
                 href="https://pro.onedoc.ch/calendar" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-sm font-medium text-[#0071e3] hover:bg-[#f5f9ff] px-3 py-1.5 rounded-full transition-colors whitespace-nowrap"
+                className="flex items-center gap-1.5 text-sm font-medium hover:bg-[#f5f5f7] px-3 py-1.5 rounded-full transition-colors whitespace-nowrap"
               >
-                <CalendarIcon className="w-4 h-4 shrink-0" />
-                <span className="hidden xl:inline">OneDoc</span>
-                <ExternalLink className="w-3 h-3 shrink-0" />
+                <img src="/images/onedoc_logo.svg" alt="OneDoc" className="h-5 object-contain opacity-80 hover:opacity-100 transition-opacity" />
               </a>
               <a 
                 href="https://proto-tracker.vercel.app" 
@@ -456,20 +454,40 @@ export default function AdminDashboard() {
                                   "AudioVitality"
                                 );
 
+                                const handleDownloadIcs = () => {
+                                  const content = generateIcsContent(
+                                    `Étude AudioVitality - ${booking.userInfo?.name}`,
+                                    startDateTs,
+                                    90,
+                                    `Participant: ${booking.userInfo?.name}\\nEmail: ${booking.userInfo?.email}\\nTél: ${booking.userInfo?.phone}\\nGroupe: ${booking.group}`,
+                                    "AudioVitality"
+                                  );
+                                  downloadIcsFile(content, `audiovitality-seance-${day.toLowerCase()}.ics`);
+                                };
+
                                 return (
                                 <div key={day} className="bg-[#f5f5f7] px-3 py-2 rounded-lg text-sm flex flex-col justify-center relative group">
                                   <div className="flex justify-between items-start">
                                     <span className="font-medium">{day} {dayDateStr && <span className="text-xs font-normal text-[#86868b]">({dayDateStr})</span>}</span>
                                     {!editingBookingId && (
-                                      <a 
-                                        href={gcalLink}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        title="Ajouter au calendrier Google"
-                                        className="text-[#0071e3] opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-[#e8f2fc] rounded"
-                                      >
-                                        <CalendarPlus className="w-4 h-4" />
-                                      </a>
+                                      <div className="flex gap-1">
+                                        <button 
+                                          onClick={handleDownloadIcs}
+                                          title="Ajouter au calendrier Apple/Outlook"
+                                          className="text-[#0071e3] opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-[#e8f2fc] rounded"
+                                        >
+                                          <Download className="w-4 h-4" />
+                                        </button>
+                                        <a 
+                                          href={gcalLink}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          title="Ajouter au calendrier Google"
+                                          className="text-[#0071e3] opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-[#e8f2fc] rounded"
+                                        >
+                                          <CalendarPlus className="w-4 h-4" />
+                                        </a>
+                                      </div>
                                     )}
                                   </div>
                                   {editingBookingId === booking.id ? (
