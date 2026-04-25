@@ -89,6 +89,7 @@ export const generateIcsContent = (title: string, startDateTs: number, durationM
 };
 
 export interface IcsEvent {
+  uid: string;
   title: string;
   startDateTs: number;
   durationMinutes?: number;
@@ -115,6 +116,7 @@ export const generateMultiEventIcsContent = (events: IcsEvent[]) => {
     
     icsLines.push(
       'BEGIN:VEVENT',
+      `UID:${event.uid}`,
       `DTSTAMP:${dtStamp}`,
       `DTSTART:${formatIcsDate(start)}`,
       `DTEND:${formatIcsDate(end)}`,

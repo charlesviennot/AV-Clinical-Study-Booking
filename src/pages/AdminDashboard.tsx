@@ -424,6 +424,7 @@ export default function AdminDashboard() {
                             startDateTs = d.getTime();
 
                             events.push({
+                              uid: `${booking.id}-${day}@audiovitality.com`,
                               title: `Étude AudioVitality - ${booking.userInfo?.name} (${day})`,
                               startDateTs,
                               durationMinutes: 90,
@@ -553,6 +554,7 @@ export default function AdminDashboard() {
                                       startDateTs = d.getTime();
 
                                       events.push({
+                                        uid: `${booking.id}-${day}@audiovitality.com`,
                                         title: `Étude AudioVitality - ${booking.userInfo?.name} (${day})`,
                                         startDateTs,
                                         durationMinutes: 90,
